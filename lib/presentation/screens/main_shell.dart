@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_demo/presentation/screens/history_screen.dart';
-import 'package:flutter_demo/presentation/screens/home_screen.dart';
+import 'history_screen.dart';
+import 'home_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
