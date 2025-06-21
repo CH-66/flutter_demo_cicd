@@ -64,3 +64,10 @@ jobs:
           name:      Release ${{ github.ref_name }}
           artifacts: artifacts/*.apk
           token:     ${{ secrets.GITHUB_TOKEN }}
+# ─────────────── ON MAIN OR PR: UPLOAD ARTIFACTS ───────────────
+      - name: ☁️ Upload APK artifact
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-apk
+          path: artifacts/
