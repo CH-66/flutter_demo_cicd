@@ -108,21 +108,34 @@ class NotificationListener : NotificationListenerService() {
             "text" to text
         )
 
-        // 2. 无论如何，都将原始数据发往Flutter端，用于调试日志记录
-        // 我们不再加[诊断]前缀，因为现在有更详细的Logcat日志
-        handler.post {
-            eventSink?.success(notificationData)
-        }
-
-        // 3. 尝试在原生端解析通知
+        // 2. 首先，尝试在原生端解析通知
         val parsedResult = parseNotification(text ?: "", packageName)
 
-        // 4. 如果原生端解析成功，则发出我们自己的记账提醒通知
-        if (parsedResult != null) {
-            Log.d("NotificationListener", "Result: Parsed successfully. Showing bookkeeping notification.")
-            showBookkeepingNotification(parsedResult, notificationData)
+        if (parsedResult == null) {
+            // 解析失败，但仍然将原始数据发往Flutter端用于调试日志
+            // (仅当Flutter端在监听时)
+            if (eventSink != null) {
+                 handler.post {
+                    eventSink?.success(notificationData)
+                }
+            }
+            Log.d("NotificationListener", "Result: Failed to parse. Sent raw data to Flutter for logging if active.")
+            Log.d("NotificationListener", "--- Notification Processed ---")
+            return
+        }
+
+        // 3. 解析成功，判断App状态
+        // 如果 eventSink 存在, 说明Flutter端正在监听, App处于前台或活跃状态
+        if (eventSink != null) {
+            Log.d("NotificationListener", "Result: Parsed successfully. App is in foreground. Sending data to Flutter UI.")
+            handler.post {
+                // 将原始数据发给Flutter的UI层进行处理
+                eventSink?.success(notificationData)
+            }
         } else {
-            Log.d("NotificationListener", "Result: Failed to parse.")
+            // 如果 eventSink 为 null, 说明App在后台或已关闭
+            Log.d("NotificationListener", "Result: Parsed successfully. App is in background. Showing system notification.")
+            showBookkeepingNotification(parsedResult, notificationData)
         }
         Log.d("NotificationListener", "--- Notification Processed ---")
     }
@@ -198,12 +211,11 @@ class NotificationListener : NotificationListenerService() {
             .setSmallIcon(R.mipmap.ic_launcher) // 使用App的启动图标
             .setContentTitle(contentTitle)
             .setContentText(contentText)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(openAppPendingIntent) // 设置点击行为
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // 设置高优先级，确保通知会弹出
+            .setContentIntent(openAppPendingIntent) // 设置点击通知后的意图
             .setAutoCancel(true) // 用户点击后自动移除通知
-            .setTimeoutAfter(5 * 60 * 1000) // 5分钟后自动消失
 
-        // 发送通知
+        // 使用唯一的ID发送通知，并递增计数器
         notificationManager.notify(notificationIdCounter++, notificationBuilder.build())
     }
 } 
