@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,19 +18,27 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription? _notificationSubscription;
   
   final List<Map<dynamic, dynamic>> _debugNotifications = [];
+  bool _isDebugCardVisible = true; // 默认开启调试卡片
 
   @override
   void initState() {
     super.initState();
-    _requestPermissionAndStartListening();
+    // 延迟一帧后执行，确保 BuildContext 可用
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermissionAndStartListening();
+    });
   }
 
-  Future<void> _requestPermissionAndStartListening() async {
-    final status = await Permission.notification.request();
-    if (status.isGranted) {
-      _startListeningToNotifications();
-    } else {
-      _showPermissionDeniedDialog();
+  Future<void> _checkPermissionAndStartListening() async {
+    // 立即开始监听，即使用户稍后才去授权，我们也不会错过。
+    _startListeningToNotifications();
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenGuide = prefs.getBool('has_seen_notification_guide') ?? false;
+
+    if (!hasSeenGuide) {
+      // 只有在用户没看过引导时才显示对话框
+      _showNotificationAccessGuideDialog();
     }
   }
 
@@ -51,23 +61,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showPermissionDeniedDialog() {
+  Future<void> _showNotificationAccessGuideDialog() async {
+    // 在显示对话框之前，先记录下"已经看过"
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_notification_guide', true);
+
     showDialog(
       context: context,
+      barrierDismissible: false, // 用户必须通过按钮交互
       builder: (context) => AlertDialog(
-        title: const Text('需要权限'),
-        content: const Text('应用需要访问通知的权限才能自动记账。请在系统设置中开启。'),
+        title: const Text('启用自动记账功能'),
+        content: const Text('为了自动识别支付信息，App需要您在系统设置中手动开启【通知使用权】。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
+            child: const Text('稍后'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () {
-              openAppSettings();
+              // 直接跳转到"通知使用权"设置页面
+              AppSettings.openAppSettings(type: AppSettingsType.notification);
               Navigator.of(context).pop();
             },
-            child: const Text('去设置'),
+            child: const Text('去开启'),
           ),
         ],
       ),
@@ -134,6 +150,18 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('我的账本', style: TextStyle(fontWeight: FontWeight.w500)),
         actions: [
           IconButton(
+            icon: Icon(
+              _isDebugCardVisible ? Icons.bug_report : Icons.bug_report_outlined,
+              color: _isDebugCardVisible ? Colors.red : null,
+            ),
+            tooltip: '切换调试卡片',
+            onPressed: () {
+              setState(() {
+                _isDebugCardVisible = !_isDebugCardVisible;
+              });
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {},
           ),
@@ -143,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          if (kDebugMode) _DebugCard(notifications: _debugNotifications),
+          if (_isDebugCardVisible) _DebugCard(notifications: _debugNotifications),
           const _SummaryCard(),
           const SizedBox(height: 16),
           const _ChartCard(),
