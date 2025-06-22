@@ -23,9 +23,9 @@
 ### 第二阶段：核心功能实现 (Android) (预计2周)
 
 - **任务**:
-    - [ ] **关键任务**: 在Android端使用Kotlin或Java实现 `NotificationListenerService`。
+    - [x] **关键任务**: 在Android端使用Kotlin或Java实现 `NotificationListenerService`。
+    - [x] 使用Platform Channels搭建Flutter与Android原生代码的通信桥梁。
     - [ ] 编写正则表达式或解析逻辑，用于精确提取微信、支付宝通知中的金额、商户等信息。
-    - [ ] 使用Platform Channels搭建Flutter与Android原生代码的通信桥梁。
     - [ ] 在Flutter端接收到原生代码传来的交易数据后，弹出"交易确认"弹窗。
     - [ ] 实现本地数据库 (`sqflite` 或 `drift`) 的集成，完成交易记录的增、删、改、查功能。
     - [ ] 对Android真机进行充分测试，确保不同品牌手机的通知格式兼容性。
