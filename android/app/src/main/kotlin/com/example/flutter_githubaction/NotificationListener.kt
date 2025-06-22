@@ -20,6 +20,7 @@ class NotificationListener : NotificationListenerService() {
     companion object {
         private const val EVENT_CHANNEL_NAME = "com.example.flutter_githubaction/notifications"
         private var eventSink: EventChannel.EventSink? = null
+        var isAppInForeground = false // 全局变量，用于精确跟踪App状态
 
         fun configure(flutterEngine: FlutterEngine) {
             val eventChannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL_NAME)
@@ -125,15 +126,15 @@ class NotificationListener : NotificationListenerService() {
         }
 
         // 3. 解析成功，判断App状态
-        // 如果 eventSink 存在, 说明Flutter端正在监听, App处于前台或活跃状态
-        if (eventSink != null) {
+        // 使用我们新的、可靠的生命周期跟踪变量
+        if (isAppInForeground) {
             Log.d("NotificationListener", "Result: Parsed successfully. App is in foreground. Sending data to Flutter UI.")
             handler.post {
                 // 将原始数据发给Flutter的UI层进行处理
                 eventSink?.success(notificationData)
             }
         } else {
-            // 如果 eventSink 为 null, 说明App在后台或已关闭
+            // 如果 App在后台或已关闭
             Log.d("NotificationListener", "Result: Parsed successfully. App is in background. Showing system notification.")
             showBookkeepingNotification(parsedResult, notificationData)
         }
