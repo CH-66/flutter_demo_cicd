@@ -15,9 +15,11 @@ class AlipayFallbackParser implements NotificationParser {
       
       if (type == null) return null;
 
-      // 金额提取：移除所有非数字和非小数点的字符
-      final amountString = text.replaceAll(RegExp(r'[^0-9.]'), '');
-      if (amountString.isEmpty) return null;
+      // 金额提取：只提取"X元"前的数字
+      final reg = RegExp(r'([\d.]+)元');
+      final match = reg.firstMatch(text);
+      final amountString = match?.group(1);
+      if (amountString == null || amountString.isEmpty) return null;
       
       final amount = double.tryParse(amountString);
       if (amount == null || amount == 0.0) return null;

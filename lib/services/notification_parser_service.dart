@@ -12,6 +12,7 @@ class NotificationParserService {
 
   NotificationParserService() : _parsers = {
     alipayPackage: [
+      AlipayExpenseParserV3(),
       AlipayExpenseParserV1(),
       AlipayExpenseParserV2(),
       AlipayIncomeParserV1(),
