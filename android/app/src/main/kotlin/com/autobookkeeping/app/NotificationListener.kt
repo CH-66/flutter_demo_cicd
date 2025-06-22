@@ -18,7 +18,7 @@ import io.flutter.plugin.common.EventChannel
 class NotificationListener : NotificationListenerService() {
 
     companion object {
-        private const val EVENT_CHANNEL_NAME = "com.example.flutter_githubaction/notifications"
+        private const val EVENT_CHANNEL_NAME = "com.autobookkeeping.app/notifications"
         private var eventSink: EventChannel.EventSink? = null
         var isAppInForeground = false // 全局变量，用于精确跟踪App状态
         // 队列缓存，支持多条待处理通知

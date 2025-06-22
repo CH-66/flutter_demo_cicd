@@ -18,7 +18,7 @@ import java.io.InputStreamReader
 
 class MainActivity : FlutterActivity() {
 
-    private val METHOD_CHANNEL_NAME = "com.example.flutter_githubaction/methods"
+    private val METHOD_CHANNEL_NAME = "com.autobookkeeping.app/methods"
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
 
     companion object {

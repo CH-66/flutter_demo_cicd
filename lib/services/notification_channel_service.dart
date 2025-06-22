@@ -19,7 +19,7 @@ class NotificationChannelService {
 
   // EventChannel
   static const _eventChannel =
-      EventChannel('com.example.flutter_githubaction/notifications');
+      EventChannel('com.autobookkeeping.app/notifications');
 
   // StreamController，用于合并真实通知和模拟通知
   final _notificationController = StreamController<dynamic>.broadcast();

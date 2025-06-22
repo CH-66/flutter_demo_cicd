@@ -25,7 +25,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   // 定义方法通道
-  static const _methodChannel = MethodChannel('com.example.flutter_githubaction/methods');
+  static const _methodChannel = MethodChannel('com.autobookkeeping.app/methods');
 
   final _notificationService = NotificationChannelService();
   final _parserService = NotificationParserService();
@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _fetchPendingIntentNotification() async {
-    const methodChannel = MethodChannel('com.example.flutter_githubaction/methods');
+    const methodChannel = MethodChannel('com.autobookkeeping.app/methods');
     try {
       final data = await methodChannel.invokeMethod('getPendingIntentNotification');
       if (data is Map && data['source'] != null) {
