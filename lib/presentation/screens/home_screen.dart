@@ -111,9 +111,24 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('启用自动记账功能'),
-        content: Text(isListenerEnabled
-            ? '太棒了！自动记账功能已准备就绪。'
-            : '请在接下来的系统设置页面中，找到并开启"flutter_githubaction"的权限。'),
+        content: RichText(
+          text: TextSpan(
+            style: DefaultTextStyle.of(context).style,
+            children: <TextSpan>[
+              const TextSpan(text: '为了让App能自动捕获交易通知，需要您手动开启两个关键权限：\n\n'),
+              TextSpan(
+                text: '1. 通知使用权：',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const TextSpan(text: '请在列表中找到并开启"记账助手"。\n\n'),
+              TextSpan(
+                text: '2. 后台弹出界面 (或悬浮窗)：',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const TextSpan(text: '这是为了确保App在后台时，也能弹出记账提醒。这个选项通常在"权限管理"中，不同手机名称可能不同。\n'),
+            ],
+          ),
+        ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -121,11 +136,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           FilledButton(
             onPressed: () {
-              // 直接跳转到"通知使用权"设置页面
-              AppSettings.openAppSettings(type: AppSettingsType.notification);
+              // AppSettings.openAppSettings(type: AppSettingsType.notification) 
+              // 只能精确跳转到"通知使用权"，为了引导用户开启其他权限，
+              // 我们直接跳转到应用自身的设置页，让用户自己找。
+              AppSettings.openAppSettings(type: AppSettingsType.settings);
               Navigator.of(context).pop();
             },
-            child: Text(isListenerEnabled ? '完成' : '去设置'),
+            child: const Text('去设置'),
           ),
         ],
       ),
