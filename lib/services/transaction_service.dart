@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../models/transaction.dart';
+import '../models/transaction.dart' as model;
 import '../models/transaction_data.dart';
 
 class TransactionService {
@@ -39,7 +40,7 @@ class TransactionService {
 
   Future<void> addTransactionFromParsedData(ParsedTransaction parsedData) async {
     final db = await database;
-    final newTransaction = Transaction(
+    final newTransaction = model.Transaction(
       amount: parsedData.amount,
       merchant: parsedData.merchant,
       type: parsedData.type,
@@ -50,7 +51,7 @@ class TransactionService {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<List<Transaction>> getRecentTransactions({int limit = 10}) async {
+  Future<List<model.Transaction>> getRecentTransactions({int limit = 10}) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableName,
@@ -58,7 +59,7 @@ class TransactionService {
       limit: limit,
     );
     return List.generate(maps.length, (i) {
-      return Transaction.fromMap(maps[i]);
+      return model.Transaction.fromMap(maps[i]);
     });
   }
 
@@ -83,5 +84,42 @@ class TransactionService {
       'expense': totalExpense,
       'income': totalIncome,
     };
+  }
+
+  Future<int> insertTransaction(model.Transaction transaction) async {
+    final db = await database;
+    return await db.insert(
+      _tableName,
+      transaction.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<model.Transaction>> getAllTransactions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(_tableName);
+
+    return List.generate(maps.length, (i) {
+      return model.Transaction.fromMap(maps[i]);
+    });
+  }
+
+  Future<int> updateTransaction(model.Transaction transaction) async {
+    final db = await database;
+    return await db.update(
+      _tableName,
+      transaction.toMap(),
+      where: 'id = ?',
+      whereArgs: [transaction.id],
+    );
+  }
+
+  Future<int> deleteTransaction(int id) async {
+    final db = await database;
+    return await db.delete(
+      _tableName,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 } 
