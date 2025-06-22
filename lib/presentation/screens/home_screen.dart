@@ -13,6 +13,7 @@ import '../../services/debug_log_service.dart';
 import '../../services/transaction_service.dart';
 import '../../services/notification_channel_service.dart';
 import 'debug_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -115,48 +116,8 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
+            child: const Text('待会再说'),
           ),
-          if (!isListenerEnabled)
-            TextButton(
-              child: const Text('尝试修复'),
-              onPressed: () async {
-                try {
-                  await _methodChannel.invokeMethod('ensureNotificationListenerEnabled');
-                  // 稍作延时，给系统反应时间
-                  await Future.delayed(const Duration(milliseconds: 500));
-                  
-                  // 再次检查权限
-                  final bool nowEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
-                  
-                  if (mounted && nowEnabled) {
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       const SnackBar(
-                         content: Text('修复成功！服务已启用。'),
-                         backgroundColor: Colors.green,
-                       ),
-                     );
-                     Navigator.of(context).pop();
-                  } else if (mounted) {
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       const SnackBar(
-                         content: Text('修复失败，请尝试"去设置"手动开启。'),
-                         backgroundColor: Colors.red,
-                       ),
-                     );
-                  }
-                } catch (e) {
-                   if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                       SnackBar(
-                         content: Text('调用修复失败: $e'),
-                         backgroundColor: Colors.red,
-                       ),
-                     );
-                   }
-                }
-              },
-            ),
           FilledButton(
             onPressed: () {
               // 直接跳转到"通知使用权"设置页面
@@ -248,7 +209,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
+            onPressed: () {
+               Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
           ),
         ],
         backgroundColor: theme.colorScheme.surface,
