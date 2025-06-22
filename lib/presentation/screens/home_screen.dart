@@ -11,6 +11,7 @@ import '../../models/transaction_data.dart';
 import '../../services/notification_parser_service.dart';
 import '../../services/debug_log_service.dart';
 import '../../services/transaction_service.dart';
+import '../../services/notification_channel_service.dart';
 import 'debug_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,23 +22,23 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _notificationChannel = EventChannel('com.example.flutter_githubaction/notifications');
-  StreamSubscription? _notificationSubscription;
+  final _notificationService = NotificationChannelService();
   final _parserService = NotificationParserService();
   final _debugLogService = DebugLogService();
   final _transactionService = TransactionService();
   
   Map<String, double> _monthlySummary = {'income': 0.0, 'expense': 0.0};
   List<tx_model.Transaction> _recentTransactions = [];
+  StreamSubscription? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
+    _checkAndRequestPermissions();
     _loadData();
-    // 延迟一帧后执行，确保 BuildContext 可用
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPermissionAndStartListening();
-    });
+    _notificationService.initialize();
+    _notificationSubscription =
+        _notificationService.notificationStream.listen(_onNotificationReceived);
   }
 
   Future<void> _loadData() async {
@@ -51,53 +52,46 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _checkPermissionAndStartListening() async {
-    // 立即开始监听，即使用户稍后才去授权，我们也不会错过。
-    _startListeningToNotifications();
+  Future<void> _checkAndRequestPermissions() async {
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final hasSeenGuide = prefs.getBool('has_seen_notification_guide') ?? false;
 
-    if (!hasSeenGuide) {
-      // 只有在用户没看过引导时才显示对话框
+    var status = await Permission.notificationListener.status;
+    if (!hasSeenGuide && !status.isGranted) {
       _showNotificationAccessGuideDialog();
     }
   }
 
-  void _startListeningToNotifications() {
-    _notificationSubscription = _notificationChannel.receiveBroadcastStream().listen(
-      (dynamic data) {
-        if (data is Map) {
-          // 首先，无条件保存所有通知到调试数据库
-          _debugLogService.addLog(data);
+  void _onNotificationReceived(dynamic data) async {
+    if (data is Map<dynamic, dynamic>) {
+      final notificationData = data.cast<String, dynamic>();
+      await _debugLogService.addLog(notificationData);
 
-          // 然后，尝试解析
-          final parsedData = _parserService.parse(data);
-          if (parsedData != null) {
-            _showTransactionConfirmationDialog(parsedData);
-          }
-        }
-      },
-      onError: (dynamic error) {
-        if (kDebugMode) {
-          print('Received error: ${error.message}');
-        }
-      },
-      cancelOnError: false,
-    );
+      final parsedData = _parserService.parse(notificationData);
+      if (parsedData != null && mounted) {
+        _showTransactionConfirmationDialog(parsedData);
+      }
+    }
   }
 
   Future<void> _showNotificationAccessGuideDialog() async {
-    // 在显示对话框之前，先记录下"已经看过"
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_notification_guide', true);
 
+    var status = await Permission.notificationListener.status;
+
     showDialog(
       context: context,
-      barrierDismissible: false, // 用户必须通过按钮交互
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('启用自动记账功能'),
-        content: const Text('为了自动识别支付信息，App需要您在系统设置中手动开启【通知使用权】。'),
+        content: Text(status.isGranted
+            ? '太棒了！自动记账功能已准备就绪。'
+            : '请在接下来的系统设置页面中，找到并开启"flutter_githubaction"的权限。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -105,11 +99,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           FilledButton(
             onPressed: () {
-              // 直接跳转到"通知使用权"设置页面
               AppSettings.openAppSettings(type: AppSettingsType.notification);
               Navigator.of(context).pop();
             },
-            child: const Text('去开启'),
+            child: Text(status.isGranted ? '完成' : '去设置'),
           ),
         ],
       ),
@@ -152,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () async {
                       await _transactionService.addTransactionFromParsedData(data);
                       Navigator.of(context).pop();
-                      _loadData(); // 保存后刷新数据
+                      _loadData();
                     },
                     child: const Text('确认记账'),
                   ),

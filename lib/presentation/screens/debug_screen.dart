@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/debug_log_service.dart';
-import '../../services/notification_parser_service.dart';
+import '../../services/notification_channel_service.dart';
 import 'package:intl/intl.dart';
 
 class DebugScreen extends StatefulWidget {
@@ -93,26 +93,25 @@ class _DebugScreenState extends State<DebugScreen> {
       context: context,
       builder: (context) {
         return _SimulationDialog(
-          onSimulate: (Map<String, dynamic> fakeNotification) async {
-            // 1. 保存到日志
-            await _logService.addLog(fakeNotification);
+          onSimulate: (Map<String, dynamic> fakeNotification) {
+            // 1. 通过服务发送模拟通知，触发全局监听
+            NotificationChannelService().sendMockNotification(fakeNotification);
 
-            // 2. 尝试解析
-            final parser = NotificationParserService();
-            final result = parser.parse(fakeNotification);
-
-            // 3. 显示结果
+            // 2. 给用户一个清晰的反馈
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(result != null
-                    ? '模拟成功并解析: ${result.toString()}'
-                    : '模拟成功但无法解析'),
-                backgroundColor: result != null ? Colors.green : Colors.orange,
+              const SnackBar(
+                content: Text('模拟通知已发送，请返回首页查看弹窗'),
+                backgroundColor: Colors.blue,
               ),
             );
 
-            // 4. 刷新列表
-            _refreshLogs();
+            // 3. 延迟刷新日志列表，以确保HomeScreen有时间处理和保存新日志
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if(mounted) {
+                _refreshLogs();
+              }
+            });
           },
         );
       },

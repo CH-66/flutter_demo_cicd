@@ -2,7 +2,9 @@ name: 🛠 Android CI / Build & Release APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'f_**'
     tags:    [ 'v*.*.*' ]
   pull_request:
     branches: [ main ]
