@@ -125,7 +125,7 @@ class NotificationListener : NotificationListenerService() {
         val contentText = "点击查看并记账"
 
         // 创建一个意图：当用户点击通知时，打开我们的MainActivity
-        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+        val openAppIntent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             action = "SHOW_TRANSACTION_DIALOG" // 自定义一个Action
             // 将原始通知数据附加到意图中，以便Flutter端接收和处理
