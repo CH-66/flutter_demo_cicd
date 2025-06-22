@@ -13,6 +13,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class MainActivity : FlutterActivity() {
 
@@ -27,14 +29,20 @@ class MainActivity : FlutterActivity() {
         // 设置MethodChannel，用于Flutter调用原生方法
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL_NAME)
             .setMethodCallHandler { call, result ->
-                if (call.method == "isNotificationListenerEnabled") {
-                    val isEnabled = isNotificationServiceEnabled()
-                    result.success(isEnabled)
-                } else if (call.method == "ensureNotificationListenerEnabled") {
-                    ensureNotificationListenerEnabled()
-                    result.success(null)
-                } else {
-                    result.notImplemented()
+                when (call.method) {
+                    "isNotificationListenerEnabled" -> {
+                        val isEnabled = isNotificationServiceEnabled()
+                        result.success(isEnabled)
+                    }
+                    "ensureNotificationListenerEnabled" -> {
+                        ensureNotificationListenerEnabled()
+                        result.success(null)
+                    }
+                    "getLogcat" -> {
+                        val logs = getLogcatLogs()
+                        result.success(logs)
+                    }
+                    else -> result.notImplemented()
                 }
             }
     }
@@ -114,6 +122,23 @@ class MainActivity : FlutterActivity() {
                     NOTIFICATION_PERMISSION_REQUEST_CODE
                 )
             }
+        }
+    }
+
+    // 新增：获取最近200行logcat日志
+    private fun getLogcatLogs(): String {
+        return try {
+            val process = Runtime.getRuntime().exec("logcat -d -t 200")
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val logs = StringBuilder()
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                logs.append(line).append('\n')
+            }
+            reader.close()
+            logs.toString()
+        } catch (e: Exception) {
+            "获取logcat失败: ${e.message}"
         }
     }
 }
