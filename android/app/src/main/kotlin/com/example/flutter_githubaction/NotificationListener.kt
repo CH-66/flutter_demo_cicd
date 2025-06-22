@@ -32,9 +32,7 @@ class NotificationListener : NotificationListenerService() {
             })
         }
         
-        // 静态方法，允许从MainActivity发送数据
         fun sendData(data: Map<String, Any?>) {
-            // 确保在主线程上发送事件
             Handler(Looper.getMainLooper()).post {
                 eventSink?.success(data)
             }
@@ -81,40 +79,27 @@ class NotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
-        val packageName = sbn.packageName
-        // 我们只关心微信和支付宝
-        if (packageName != "com.tencent.mm" && packageName != "com.eg.android.AlipayGphone") {
-            return
-        }
+        // --- 诊断性修改开始 ---
+        // 暂时移除所有过滤和解析逻辑
 
+        val packageName = sbn.packageName
         val notification = sbn.notification
         val extras = notification.extras
         val title = extras.getString("android.title")
         val text = extras.getString("android.text")
 
-        if (title.isNullOrBlank() && text.isNullOrBlank()) {
-            return
-        }
-        
+        // 构建一个简单的数据包
         val notificationData = mapOf(
             "source" to packageName,
-            "title" to title,
+            "title" to "[诊断] " + title, // 加上前缀以区分
             "text" to text
         )
 
-        // 1. 尝试在原生端解析通知
-        val parsedResult = parseNotification(text ?: "", packageName)
-
-        // 2. 无论是否解析成功，都将原始数据发往Flutter端，用于调试日志记录
+        // 无条件地将所有通知都发送给Flutter端进行日志记录
         handler.post {
-            // 使用静态的eventSink
             eventSink?.success(notificationData)
         }
-
-        // 3. 如果原生端解析成功，则发出我们自己的记账提醒通知
-        if (parsedResult != null) {
-            showBookkeepingNotification(parsedResult, notificationData)
-        }
+        // --- 诊断性修改结束 ---
     }
 
     private fun parseNotification(text: String, sourcePackage: String): ParsedTransaction? {
