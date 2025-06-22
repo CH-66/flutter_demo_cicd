@@ -39,9 +39,7 @@ class NotificationChannelService {
     print('[NotificationChannelService] Initializing EventChannel...');
     _eventChannel.receiveBroadcastStream().listen(
       (data) {
-        print('[NotificationChannelService] Received data from native: '
-            '
-' + data.toString());
+        print('[NotificationChannelService] Received data from native: $data');
         // 当收到真实通知时，将其添加到流中
         _notificationController.add(data);
       },
