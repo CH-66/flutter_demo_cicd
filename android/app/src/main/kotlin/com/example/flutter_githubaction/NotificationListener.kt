@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -79,43 +80,73 @@ class NotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
-        // --- 诊断性修改开始 ---
-        // 暂时移除所有过滤和解析逻辑
-
         val packageName = sbn.packageName
         val notification = sbn.notification
         val extras = notification.extras
         val title = extras.getString("android.title")
         val text = extras.getString("android.text")
 
-        // 构建一个简单的数据包
+        Log.d("NotificationListener", "--- New Notification Received ---")
+        Log.d("NotificationListener", "Package: $packageName")
+        Log.d("NotificationListener", "Title: $title")
+        Log.d("NotificationListener", "Text: $text")
+
+        // 1. 过滤我们关心的应用
+        if (packageName != "com.tencent.mm" && packageName != "com.eg.android.AlipayGphone") {
+            Log.d("NotificationListener", "Result: Skipped (Not a target app).")
+            return
+        }
+
+        if (title.isNullOrBlank() && text.isNullOrBlank()) {
+            Log.d("NotificationListener", "Result: Skipped (Empty content).")
+            return
+        }
+        
         val notificationData = mapOf(
             "source" to packageName,
-            "title" to "[诊断] " + title, // 加上前缀以区分
+            "title" to title,
             "text" to text
         )
 
-        // 无条件地将所有通知都发送给Flutter端进行日志记录
+        // 2. 无论如何，都将原始数据发往Flutter端，用于调试日志记录
+        // 我们不再加[诊断]前缀，因为现在有更详细的Logcat日志
         handler.post {
             eventSink?.success(notificationData)
         }
-        // --- 诊断性修改结束 ---
+
+        // 3. 尝试在原生端解析通知
+        val parsedResult = parseNotification(text ?: "", packageName)
+
+        // 4. 如果原生端解析成功，则发出我们自己的记账提醒通知
+        if (parsedResult != null) {
+            Log.d("NotificationListener", "Result: Parsed successfully. Showing bookkeeping notification.")
+            showBookkeepingNotification(parsedResult, notificationData)
+        } else {
+            Log.d("NotificationListener", "Result: Failed to parse.")
+        }
+        Log.d("NotificationListener", "--- Notification Processed ---")
     }
 
     private fun parseNotification(text: String, sourcePackage: String): ParsedTransaction? {
+        Log.d("NotificationListener", "Parsing text: '$text' from package: $sourcePackage")
         val source = if (sourcePackage.contains("alipay")) "alipay" else "wechat"
-        // 将Dart中的正则表达式移植到Kotlin
+        
         val patterns = mapOf(
-            Regex("""你向(.+)付款([\d.]+)元""") to { result: MatchResult ->
+            Regex("""你向(.+?)付款([\d.]+)元""") to { result: MatchResult ->
+                Log.d("NotificationListener", "Matched: Alipay Expense (Pattern 1)")
                 ParsedTransaction("expense", result.groupValues[2].toDouble(), result.groupValues[1], source)
             },
-            Regex("""支付宝成功收款([\d.]+)元""") to { result: MatchResult ->
-                ParsedTransaction("income", result.groupValues[1].toDouble(), "支付宝收款", source)
+            Regex("""成功收款([\d.]+)元""") to { result: MatchResult -> // 更通用的收款格式
+                Log.d("NotificationListener", "Matched: Income (Generic)")
+                val merchant = if (source == "alipay") "支付宝收款" else "微信支付"
+                ParsedTransaction("income", result.groupValues[1].toDouble(), merchant, source)
             },
-            Regex("""向(.+)成功付款([\d.]+)元""") to { result: MatchResult ->
+            Regex("""向(.+?)成功付款([\d.]+)元""") to { result: MatchResult ->
+                Log.d("NotificationListener", "Matched: WeChat Expense (Pattern 1)")
                 ParsedTransaction("expense", result.groupValues[2].toDouble(), result.groupValues[1], source)
             },
             Regex("""微信支付收款([\d.]+)元""") to { result: MatchResult ->
+                 Log.d("NotificationListener", "Matched: WeChat Income (Pattern 1)")
                 ParsedTransaction("income", result.groupValues[1].toDouble(), "微信支付", source)
             }
         )
@@ -125,10 +156,12 @@ class NotificationListener : NotificationListenerService() {
                 try {
                     return parser(it)
                 } catch (e: Exception) {
-                    return null // 解析或转换失败
+                    Log.e("NotificationListener", "Error parsing with pattern: $pattern", e)
+                    return null 
                 }
             }
         }
+        Log.d("NotificationListener", "No patterns matched.")
         return null
     }
 
