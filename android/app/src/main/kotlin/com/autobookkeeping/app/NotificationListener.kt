@@ -172,15 +172,7 @@ class NotificationListener : NotificationListenerService() {
         // 2. 判断App状态 -> 修改为无条件发送，并额外判断是否需要系统通知
         // 永远、无条件地将数据发送到Flutter。
         // Flutter引擎可能会缓冲它，直到App返回前台。
-        handler.post {
-            Log.d("NotificationListener", "onNotificationPosted: sending to Flutter: $notificationData, eventSink=$eventSink")
-            if (eventSink == null) {
-                pendingNotificationQueue.add(notificationData)
-                Log.d("NotificationListener", "onNotificationPosted: EventSink not ready, caching data. Queue size: ${pendingNotificationQueue.size}")
-            } else {
-                eventSink?.success(notificationData)
-            }
-        }
+        sendData(notificationData)
 
         // 如果App在后台，我们额外再显示一个系统通知作为备用。
         // 用户可以点击这个通知直接进入App，
