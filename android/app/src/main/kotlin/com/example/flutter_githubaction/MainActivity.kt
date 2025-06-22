@@ -65,29 +65,29 @@ class MainActivity : FlutterActivity(), DefaultLifecycleObserver {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super<FlutterActivity>.onCreate(savedInstanceState)
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         checkAndRequestNotificationPermission()
         intent?.let { handleIntent(it) }
     }
 
     override fun onStart() {
-        super.onStart()
+        super<FlutterActivity>.onStart()
         NotificationListener.isAppInForeground = true
     }
 
     override fun onStop() {
-        super.onStop()
+        super<FlutterActivity>.onStop()
         NotificationListener.isAppInForeground = false
     }
 
     override fun onDestroy() {
         ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
-        super.onDestroy()
+        super<FlutterActivity>.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
+        super<FlutterActivity>.onNewIntent(intent)
         handleIntent(intent)
     }
 
