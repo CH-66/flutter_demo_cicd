@@ -48,14 +48,6 @@ class NotificationListener : NotificationListenerService() {
     private val NOTIFICATION_CHANNEL_NAME = "交易记账提醒"
     private var notificationIdCounter = 2024 // 通知ID的起始值，避免冲突
 
-    // 内部数据类，用于存放原生解析结果
-    private data class ParsedTransaction(
-        val type: String, // "income" 或 "expense"
-        val amount: Double,
-        val merchant: String,
-        val source: String
-    )
-
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -109,86 +101,28 @@ class NotificationListener : NotificationListenerService() {
             "text" to text
         )
 
-        // 2. 首先，尝试在原生端解析通知
-        val parsedResult = parseNotification(text ?: "", packageName)
-
-        if (parsedResult == null) {
-            // 解析失败，但仍然将原始数据发往Flutter端用于调试日志
-            // (仅当Flutter端在监听时)
-            if (eventSink != null) {
-                 handler.post {
-                    eventSink?.success(notificationData)
-                }
-            }
-            Log.d("NotificationListener", "Result: Failed to parse. Sent raw data to Flutter for logging if active.")
-            Log.d("NotificationListener", "--- Notification Processed ---")
-            return
-        }
-
-        // 3. 解析成功，判断App状态
-        // 使用我们新的、可靠的生命周期跟踪变量
+        // 2. 判断App状态
         if (isAppInForeground) {
-            Log.d("NotificationListener", "Result: Parsed successfully. App is in foreground. Sending data to Flutter UI.")
+            // App 在前台: 直接发送数据到Flutter
+            Log.d("NotificationListener", "App in foreground. Sending data to Flutter.")
             handler.post {
-                // 将原始数据发给Flutter的UI层进行处理
                 eventSink?.success(notificationData)
             }
         } else {
-            // 如果 App在后台或已关闭
-            Log.d("NotificationListener", "Result: Parsed successfully. App is in background. Showing system notification.")
-            showBookkeepingNotification(parsedResult, notificationData)
+            // App 在后台: 显示一个通用的系统通知
+            Log.d("NotificationListener", "App in background. Showing generic system notification.")
+            showGenericBookkeepingNotification(notificationData)
         }
         Log.d("NotificationListener", "--- Notification Processed ---")
     }
 
-    private fun parseNotification(text: String, sourcePackage: String): ParsedTransaction? {
-        Log.d("NotificationListener", "Parsing text: '$text' from package: $sourcePackage")
-        val source = if (sourcePackage.contains("alipay")) "alipay" else "wechat"
-        
-        val patterns = mapOf(
-            Regex("""你向(.+?)付款([\d.]+)元""") to { result: MatchResult ->
-                Log.d("NotificationListener", "Matched: Alipay Expense (Pattern 1)")
-                ParsedTransaction("expense", result.groupValues[2].toDouble(), result.groupValues[1], source)
-            },
-            Regex("""你有一笔([\d.]+)元的支出""") to { result: MatchResult ->
-                Log.d("NotificationListener", "Matched: Alipay Expense (Pattern 2)")
-                ParsedTransaction("expense", result.groupValues[1].toDouble(), "支付宝", source)
-            },
-            Regex("""成功收款([\d.]+)元""") to { result: MatchResult -> // 更通用的收款格式
-                Log.d("NotificationListener", "Matched: Income (Generic)")
-                val merchant = if (source == "alipay") "支付宝收款" else "微信支付"
-                ParsedTransaction("income", result.groupValues[1].toDouble(), merchant, source)
-            },
-            Regex("""向(.+?)成功付款([\d.]+)元""") to { result: MatchResult ->
-                Log.d("NotificationListener", "Matched: WeChat Expense (Pattern 1)")
-                ParsedTransaction("expense", result.groupValues[2].toDouble(), result.groupValues[1], source)
-            },
-            Regex("""微信支付收款([\d.]+)元""") to { result: MatchResult ->
-                 Log.d("NotificationListener", "Matched: WeChat Income (Pattern 1)")
-                ParsedTransaction("income", result.groupValues[1].toDouble(), "微信支付", source)
-            }
-        )
-
-        for ((pattern, parser) in patterns) {
-            pattern.find(text)?.let {
-                try {
-                    return parser(it)
-                } catch (e: Exception) {
-                    Log.e("NotificationListener", "Error parsing with pattern: $pattern", e)
-                    return null 
-                }
-            }
-        }
-        Log.d("NotificationListener", "No patterns matched.")
-        return null
-    }
-
-    private fun showBookkeepingNotification(parsed: ParsedTransaction, originalData: Map<String, Any?>) {
+    private fun showGenericBookkeepingNotification(originalData: Map<String, Any?>) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val typeText = if (parsed.type == "expense") "支出" else "收入"
-        val contentTitle = "新的${typeText}记账提醒"
-        val contentText = "从 ${parsed.source} 识别到一笔${parsed.amount}元的${typeText}，需要记录吗？"
+        val sourceAppName = if (originalData["source"] == "com.eg.android.AlipayGphone") "支付宝" else "微信"
+
+        val contentTitle = "有新的$sourceAppName交易通知"
+        val contentText = "点击查看并记账"
 
         // 创建一个意图：当用户点击通知时，打开我们的MainActivity
         val openAppIntent = Intent(this, MainActivity::class.java).apply {

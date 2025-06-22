@@ -140,8 +140,10 @@ class _HomeScreenState extends State<HomeScreen> {
         // 为了管理按钮状态，我们将内容提取到一个StatefulWidget中
         return _ConfirmationDialogContent(
           data: data,
+          transactionService: _transactionService,
           onConfirm: () {
             _loadData(); // 记账成功后，刷新主页数据
+            Navigator.of(context).pop(); // 关闭弹窗
           },
         );
       },
@@ -520,10 +522,12 @@ class _TransactionItem extends StatelessWidget {
 class _ConfirmationDialogContent extends StatefulWidget {
   const _ConfirmationDialogContent({
     required this.data,
+    required this.transactionService,
     required this.onConfirm,
   });
 
   final ParsedTransaction data;
+  final TransactionService transactionService;
   final VoidCallback onConfirm;
 
   @override
@@ -531,108 +535,103 @@ class _ConfirmationDialogContent extends StatefulWidget {
       __ConfirmationDialogContentState();
 }
 
-enum _ButtonState { idle, loading, success }
-
-class __ConfirmationDialogContentState extends State<_ConfirmationDialogContent> {
-  final _transactionService = TransactionService();
-  _ButtonState _state = _ButtonState.idle;
+class __ConfirmationDialogContentState
+    extends State<_ConfirmationDialogContent> {
+  bool _isSaving = false;
 
   Future<void> _handleConfirm() async {
-    if (_state != _ButtonState.idle) return;
+    if (_isSaving) return;
 
     setState(() {
-      _state = _ButtonState.loading;
+      _isSaving = true;
     });
 
-    await _transactionService.addTransactionFromParsedData(widget.data);
-    
-    setState(() {
-      _state = _ButtonState.success;
-    });
-    
-    widget.onConfirm();
-
-    // 1.5秒后自动关闭
-    await Future.delayed(const Duration(milliseconds: 1500));
-
-    if (mounted) {
-      Navigator.of(context).pop();
+    try {
+      await widget.transactionService.addTransaction(widget.data);
+      // 调用父widget传递的回调，这个回调会负责刷新UI和关闭弹窗
+      widget.onConfirm();
+    } catch (e) {
+      if (kDebugMode) {
+        print("保存交易失败: $e");
+      }
+      setState(() {
+        _isSaving = false;
+      });
+      // 可以在这里显示一个错误提示
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.data;
-    final amountString = '¥ ${data.amount.toStringAsFixed(2)}';
-    final title = data.merchant;
-    final typeText = data.type == TransactionType.expense ? '支出' : '收入';
+    final theme = Theme.of(context);
+    final isExpense = widget.data.type == TransactionType.expense;
+    final amountColor = isExpense ? Colors.red : Colors.green;
+    final amountPrefix = isExpense ? '-' : '+';
 
     return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('发现一笔新交易 ($typeText)',
-              style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text('来源: ${data.source}',
-              style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 24),
-          Center(
-              child: Text(amountString,
-                  style: Theme.of(context).textTheme.displaySmall)),
+          Text('记录一笔新交易', style: theme.textTheme.titleLarge),
           const SizedBox(height: 16),
-          Center(
-              child:
-                  Text(title, style: Theme.of(context).textTheme.bodyLarge)),
+          _buildInfoRow(Icons.price_change_outlined, '金额',
+              '$amountPrefix ¥${widget.data.amount.toStringAsFixed(2)}', amountColor),
+          _buildInfoRow(
+              Icons.business_center_outlined, '类型', isExpense ? '支出' : '收入'),
+          _buildInfoRow(Icons.store_mall_directory_outlined, '商户', widget.data.merchant),
+          _buildInfoRow(Icons.apps_outlined, '来源', widget.data.source),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('忽略')),
+                onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                child: const Text('取消'),
+              ),
               const SizedBox(width: 8),
-              SizedBox(
-                width: 120,
-                child: FilledButton(
-                  onPressed: _handleConfirm,
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.resolveWith<Color?>(
-                      (Set<MaterialState> states) {
-                        if (_state == _ButtonState.success) return Colors.green;
-                        return null; // 使用主题默认颜色
-                      },
-                    ),
-                  ),
-                  child: _buildButtonChild(),
+              FilledButton.icon(
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white,))
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(_isSaving ? '保存中...' : '确认记账'),
+                onPressed: _handleConfirm,
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildButtonChild() {
-    switch (_state) {
-      case _ButtonState.idle:
-        return const Text('确认记账');
-      case _ButtonState.loading:
-        return const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-        );
-      case _ButtonState.success:
-        return const Icon(Icons.check, color: Colors.white);
-    }
+  Widget _buildInfoRow(IconData icon, String label, String value, [Color? valueColor]) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: theme.textTheme.bodySmall?.color, size: 20),
+          const SizedBox(width: 16),
+          Text(label, style: theme.textTheme.bodyLarge),
+          const Spacer(),
+          Text(value, style: theme.textTheme.bodyLarge?.copyWith(color: valueColor, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
   }
 } 
