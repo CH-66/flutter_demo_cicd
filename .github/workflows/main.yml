@@ -46,6 +46,9 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
+      - name: 🎨 Generate launcher icons
+        run: flutter pub run flutter_launcher_icons:main
+
       # - name: ✅ Run tests
       #   run: flutter test --coverage
 
