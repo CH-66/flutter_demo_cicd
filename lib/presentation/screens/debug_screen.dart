@@ -12,6 +12,7 @@ class DebugScreen extends StatefulWidget {
 
 class _DebugScreenState extends State<DebugScreen> {
   final DebugLogService _logService = DebugLogService();
+  final NotificationChannelService _notificationChannelService = NotificationChannelService();
   late Future<List<DebugLog>> _logsFuture;
 
   @override
@@ -95,7 +96,7 @@ class _DebugScreenState extends State<DebugScreen> {
         return _SimulationDialog(
           onSimulate: (Map<String, dynamic> fakeNotification) {
             // 1. 通过服务发送模拟通知，触发全局监听
-            NotificationChannelService().sendMockNotification(fakeNotification);
+            _notificationChannelService.sendMockNotification(fakeNotification);
 
             // 2. 给用户一个清晰的反馈
             if (!mounted) return;

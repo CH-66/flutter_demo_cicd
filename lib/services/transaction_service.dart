@@ -38,7 +38,7 @@ class TransactionService {
     );
   }
 
-  Future<void> addTransactionFromParsedData(ParsedTransaction parsedData) async {
+  Future<void> addTransaction(ParsedTransaction parsedData) async {
     final db = await database;
     final newTransaction = model.Transaction(
       amount: parsedData.amount,
