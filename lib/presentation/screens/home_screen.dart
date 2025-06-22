@@ -45,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _notificationService.initialize();
     _notificationSubscription =
         _notificationService.notificationStream.listen(_onNotificationReceived);
+    _fetchPendingIntentNotification();
   }
 
   Future<void> _loadData() async {
@@ -189,6 +190,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchPendingIntentNotification() async {
+    const methodChannel = MethodChannel('com.example.flutter_githubaction/methods');
+    try {
+      final data = await methodChannel.invokeMethod('getPendingIntentNotification');
+      if (data is Map && data['source'] != null) {
+        _onNotificationReceived(Map<String, dynamic>.from(data));
+      }
+    } catch (e) {
+      // 忽略错误
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

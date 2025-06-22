@@ -21,6 +21,10 @@ class MainActivity : FlutterActivity() {
     private val METHOD_CHANNEL_NAME = "com.example.flutter_githubaction/methods"
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
 
+    companion object {
+        var pendingIntentNotification: Map<String, String?>? = null
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // 将Flutter引擎的通信能力注册给NotificationListener的静态方法
@@ -41,6 +45,10 @@ class MainActivity : FlutterActivity() {
                     "getLogcat" -> {
                         val logs = getLogcatLogs()
                         result.success(logs)
+                    }
+                    "getPendingIntentNotification" -> {
+                        result.success(pendingIntentNotification)
+                        pendingIntentNotification = null
                     }
                     else -> result.notImplemented()
                 }
@@ -106,6 +114,7 @@ class MainActivity : FlutterActivity() {
                 "title" to intent.getStringExtra("notification_title"),
                 "text" to intent.getStringExtra("notification_text")
             )
+            pendingIntentNotification = notificationData // 缓存
             // 通过NotificationListener的静态方法发送数据
             NotificationListener.sendData(notificationData)
         }
