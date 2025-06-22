@@ -136,6 +136,10 @@ class NotificationListener : NotificationListenerService() {
                 Log.d("NotificationListener", "Matched: Alipay Expense (Pattern 1)")
                 ParsedTransaction("expense", result.groupValues[2].toDouble(), result.groupValues[1], source)
             },
+            Regex("""你有一笔([\d.]+)元的支出""") to { result: MatchResult ->
+                Log.d("NotificationListener", "Matched: Alipay Expense (Pattern 2)")
+                ParsedTransaction("expense", result.groupValues[1].toDouble(), "支付宝", source)
+            },
             Regex("""成功收款([\d.]+)元""") to { result: MatchResult -> // 更通用的收款格式
                 Log.d("NotificationListener", "Matched: Income (Generic)")
                 val merchant = if (source == "alipay") "支付宝收款" else "微信支付"
