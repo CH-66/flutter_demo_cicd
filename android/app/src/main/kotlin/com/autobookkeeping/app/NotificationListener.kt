@@ -1,4 +1,4 @@
-package com.example.flutter_githubaction
+package com.autobookkeeping.app
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -18,7 +18,7 @@ import io.flutter.plugin.common.EventChannel
 class NotificationListener : NotificationListenerService() {
 
     companion object {
-        private const val EVENT_CHANNEL_NAME = "com.example.flutter_githubaction/notifications"
+        private const val EVENT_CHANNEL_NAME = "com.autobookkeeping.app/notifications"
         private var eventSink: EventChannel.EventSink? = null
         var isAppInForeground = false // 全局变量，用于精确跟踪App状态
         // 队列缓存，支持多条待处理通知
@@ -29,21 +29,27 @@ class NotificationListener : NotificationListenerService() {
             eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
+                    Log.d("NotificationListener", "onListen called, eventSink set, queue size: ${pendingNotificationQueue.size}")
                     // 派发所有缓存数据
                     if (pendingNotificationQueue.isNotEmpty()) {
                         for (data in pendingNotificationQueue) {
-                            sendData(data)
+                            Log.d("NotificationListener", "onListen: sending cached data: $data")
+                            Handler(Looper.getMainLooper()).post {
+                                eventSink?.success(data)
+                            }
                         }
                         pendingNotificationQueue.clear()
                     }
                 }
                 override fun onCancel(arguments: Any?) {
+                    Log.d("NotificationListener", "onCancel called, eventSink cleared")
                     eventSink = null
                 }
             })
         }
         
         fun sendData(data: Map<String, Any?>) {
+            Log.d("NotificationListener", "sendData called, eventSink=$eventSink, data=$data, queue size: ${pendingNotificationQueue.size}")
             if (eventSink == null) {
                 // 如果Flutter端还没准备好，就入队
                 pendingNotificationQueue.add(data)
@@ -54,14 +60,14 @@ class NotificationListener : NotificationListenerService() {
             if (pendingNotificationQueue.isNotEmpty()) {
                 for (pending in pendingNotificationQueue) {
                     Handler(Looper.getMainLooper()).post {
-                        Log.d("NotificationListener", "EventSink is ready. Sending cached data from queue.")
+                        Log.d("NotificationListener", "EventSink is ready. Sending cached data from queue: $pending")
                         eventSink?.success(pending)
                     }
                 }
                 pendingNotificationQueue.clear()
             }
             Handler(Looper.getMainLooper()).post {
-                Log.d("NotificationListener", "EventSink is ready. Sending data to Flutter.")
+                Log.d("NotificationListener", "EventSink is ready. Sending data to Flutter: $data")
                 eventSink?.success(data)
             }
         }
@@ -166,9 +172,7 @@ class NotificationListener : NotificationListenerService() {
         // 2. 判断App状态 -> 修改为无条件发送，并额外判断是否需要系统通知
         // 永远、无条件地将数据发送到Flutter。
         // Flutter引擎可能会缓冲它，直到App返回前台。
-        handler.post {
-            eventSink?.success(notificationData)
-        }
+        sendData(notificationData)
 
         // 如果App在后台，我们额外再显示一个系统通知作为备用。
         // 用户可以点击这个通知直接进入App，
