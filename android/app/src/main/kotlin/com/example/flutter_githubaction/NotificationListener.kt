@@ -121,7 +121,7 @@ class NotificationListener : NotificationListenerService() {
 
         val sourceAppName = if (originalData["source"] == "com.eg.android.AlipayGphone") "支付宝" else "微信"
 
-        val contentTitle = "有新的$sourceAppName交易通知"
+        val contentTitle = "有新的${sourceAppName}交易通知"
         val contentText = "点击查看并记账"
 
         // 创建一个意图：当用户点击通知时，打开我们的MainActivity
