@@ -14,6 +14,7 @@ import '../../services/transaction_service.dart';
 import '../../services/notification_channel_service.dart';
 import 'debug_screen.dart';
 import 'settings_screen.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -132,50 +133,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showTransactionConfirmationDialog(ParsedTransaction data) {
-    final amountString = '¥ ${data.amount.toStringAsFixed(2)}';
-    final title = data.merchant;
-    final typeText = data.type == TransactionType.expense ? '支出' : '收入';
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 16,
-              right: 16,
-              top: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('发现一笔新交易 ($typeText)', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text('来源: ${data.source}', style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 24),
-              Center(child: Text(amountString, style: Theme.of(context).textTheme.displaySmall)),
-              const SizedBox(height: 16),
-              Center(child: Text(title, style: Theme.of(context).textTheme.bodyLarge)),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('忽略')),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () async {
-                      await _transactionService.addTransactionFromParsedData(data);
-                      Navigator.of(context).pop();
-                      _loadData();
-                    },
-                    child: const Text('确认记账'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
+        // 为了管理按钮状态，我们将内容提取到一个StatefulWidget中
+        return _ConfirmationDialogContent(
+          data: data,
+          onConfirm: () {
+            _loadData(); // 记账成功后，刷新主页数据
+          },
         );
       },
     );
@@ -226,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _SummaryCard(summary: _monthlySummary),
             const SizedBox(height: 16),
-            const _ChartCard(),
+            _ChartCard(summary: _monthlySummary),
             const SizedBox(height: 16),
             _TransactionsCard(transactions: _recentTransactions),
           ],
@@ -294,34 +261,159 @@ class _SummaryItem extends StatelessWidget {
   }
 }
 
-class _ChartCard extends StatelessWidget {
-  const _ChartCard();
+class _ChartCard extends StatefulWidget {
+  const _ChartCard({required this.summary});
+  final Map<String, double> summary;
+
+  @override
+  State<_ChartCard> createState() => _ChartCardState();
+}
+
+class _ChartCardState extends State<_ChartCard> {
+  int touchedIndex = -1;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final income = widget.summary['income'] ?? 0.0;
+    final expense = widget.summary['expense'] ?? 0.0;
+    final total = income + expense;
+    final hasData = income > 0 || expense > 0;
+
     return Card(
-      color: theme.colorScheme.surfaceVariant,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('支出分类', style: theme.textTheme.titleLarge),
+            Text('收支构成', style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
-            Container(
-              height: 150,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text('（此处为支出分类图表）'),
-              ),
+            SizedBox(
+              height: 180,
+              child: hasData
+                  ? Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: PieChart(
+                            PieChartData(
+                              pieTouchData: PieTouchData(
+                                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                                  setState(() {
+                                    if (!event.isInterestedForInteractions ||
+                                        pieTouchResponse == null ||
+                                        pieTouchResponse.touchedSection == null) {
+                                      touchedIndex = -1;
+                                      return;
+                                    }
+                                    touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                                  });
+                                },
+                              ),
+                              borderData: FlBorderData(show: false),
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 40,
+                              sections: showingSections(income, expense, total),
+                            ),
+                          ),
+                        ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const <Widget>[
+                            _Indicator(color: Colors.green, text: '收入', isSquare: false),
+                            SizedBox(height: 4),
+                            _Indicator(color: Colors.red, text: '支出', isSquare: false),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Text(
+                        '暂无收支数据',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  List<PieChartSectionData> showingSections(double income, double expense, double total) {
+    return List.generate(2, (i) {
+      final isTouched = i == touchedIndex;
+      final fontSize = isTouched ? 18.0 : 14.0;
+      final radius = isTouched ? 60.0 : 50.0;
+
+      switch (i) {
+        case 0: // Income
+          return PieChartSectionData(
+            color: Colors.green,
+            value: income,
+            title: '${(income / total * 100).toStringAsFixed(0)}%',
+            radius: radius,
+            titleStyle: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          );
+        case 1: // Expense
+          return PieChartSectionData(
+            color: Colors.red,
+            value: expense,
+            title: '${(expense / total * 100).toStringAsFixed(0)}%',
+            radius: radius,
+            titleStyle: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          );
+        default:
+          throw Error();
+      }
+    });
+  }
+}
+
+class _Indicator extends StatelessWidget {
+  const _Indicator({
+    required this.color,
+    required this.text,
+    required this.isSquare,
+    this.size = 16,
+    this.textColor,
+  });
+  final Color color;
+  final String text;
+  final bool isSquare;
+  final double size;
+  final Color? textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: isSquare ? BoxShape.rectangle : BoxShape.circle,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
+        )
+      ],
     );
   }
 }
@@ -422,5 +514,125 @@ class _TransactionItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ConfirmationDialogContent extends StatefulWidget {
+  const _ConfirmationDialogContent({
+    required this.data,
+    required this.onConfirm,
+  });
+
+  final ParsedTransaction data;
+  final VoidCallback onConfirm;
+
+  @override
+  State<_ConfirmationDialogContent> createState() =>
+      __ConfirmationDialogContentState();
+}
+
+enum _ButtonState { idle, loading, success }
+
+class __ConfirmationDialogContentState extends State<_ConfirmationDialogContent> {
+  final _transactionService = TransactionService();
+  _ButtonState _state = _ButtonState.idle;
+
+  Future<void> _handleConfirm() async {
+    if (_state != _ButtonState.idle) return;
+
+    setState(() {
+      _state = _ButtonState.loading;
+    });
+
+    await _transactionService.addTransactionFromParsedData(widget.data);
+    
+    setState(() {
+      _state = _ButtonState.success;
+    });
+    
+    widget.onConfirm();
+
+    // 1.5秒后自动关闭
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final amountString = '¥ ${data.amount.toStringAsFixed(2)}';
+    final title = data.merchant;
+    final typeText = data.type == TransactionType.expense ? '支出' : '收入';
+
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('发现一笔新交易 ($typeText)',
+              style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Text('来源: ${data.source}',
+              style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 24),
+          Center(
+              child: Text(amountString,
+                  style: Theme.of(context).textTheme.displaySmall)),
+          const SizedBox(height: 16),
+          Center(
+              child:
+                  Text(title, style: Theme.of(context).textTheme.bodyLarge)),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('忽略')),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 120,
+                child: FilledButton(
+                  onPressed: _handleConfirm,
+                  style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.resolveWith<Color?>(
+                      (Set<MaterialState> states) {
+                        if (_state == _ButtonState.success) return Colors.green;
+                        return null; // 使用主题默认颜色
+                      },
+                    ),
+                  ),
+                  child: _buildButtonChild(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildButtonChild() {
+    switch (_state) {
+      case _ButtonState.idle:
+        return const Text('确认记账');
+      case _ButtonState.loading:
+        return const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        );
+      case _ButtonState.success:
+        return const Icon(Icons.check, color: Colors.white);
+    }
   }
 } 

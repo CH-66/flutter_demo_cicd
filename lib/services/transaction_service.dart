@@ -86,6 +86,47 @@ class TransactionService {
     };
   }
 
+  Future<List<model.Transaction>> getFilteredTransactions({
+    TransactionType? type,
+    String? keyword,
+    DateTime? month,
+  }) async {
+    final db = await database;
+    List<String> whereClauses = [];
+    List<dynamic> whereArgs = [];
+
+    if (type != null) {
+      whereClauses.add('type = ?');
+      whereArgs.add(type.index);
+    }
+    
+    if (keyword != null && keyword.isNotEmpty) {
+      whereClauses.add('merchant LIKE ?');
+      whereArgs.add('%$keyword%');
+    }
+
+    if (month != null) {
+      final startOfMonth = DateTime(month.year, month.month, 1).toIso8601String();
+      final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59).toIso8601String();
+      whereClauses.add('timestamp BETWEEN ? AND ?');
+      whereArgs.add(startOfMonth);
+      whereArgs.add(endOfMonth);
+    }
+
+    final whereString = whereClauses.isNotEmpty ? whereClauses.join(' AND ') : null;
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      _tableName,
+      where: whereString,
+      whereArgs: whereArgs,
+      orderBy: 'timestamp DESC',
+    );
+
+    return List.generate(maps.length, (i) {
+      return model.Transaction.fromMap(maps[i]);
+    });
+  }
+
   Future<int> insertTransaction(model.Transaction transaction) async {
     final db = await database;
     return await db.insert(
