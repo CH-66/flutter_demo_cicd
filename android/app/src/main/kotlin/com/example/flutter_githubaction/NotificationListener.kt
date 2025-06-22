@@ -29,21 +29,27 @@ class NotificationListener : NotificationListenerService() {
             eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
+                    Log.d("NotificationListener", "onListen called, eventSink set, queue size: ${pendingNotificationQueue.size}")
                     // 派发所有缓存数据
                     if (pendingNotificationQueue.isNotEmpty()) {
                         for (data in pendingNotificationQueue) {
-                            sendData(data)
+                            Log.d("NotificationListener", "onListen: sending cached data: $data")
+                            Handler(Looper.getMainLooper()).post {
+                                eventSink?.success(data)
+                            }
                         }
                         pendingNotificationQueue.clear()
                     }
                 }
                 override fun onCancel(arguments: Any?) {
+                    Log.d("NotificationListener", "onCancel called, eventSink cleared")
                     eventSink = null
                 }
             })
         }
         
         fun sendData(data: Map<String, Any?>) {
+            Log.d("NotificationListener", "sendData called, eventSink=$eventSink, data=$data, queue size: ${pendingNotificationQueue.size}")
             if (eventSink == null) {
                 // 如果Flutter端还没准备好，就入队
                 pendingNotificationQueue.add(data)
@@ -54,14 +60,14 @@ class NotificationListener : NotificationListenerService() {
             if (pendingNotificationQueue.isNotEmpty()) {
                 for (pending in pendingNotificationQueue) {
                     Handler(Looper.getMainLooper()).post {
-                        Log.d("NotificationListener", "EventSink is ready. Sending cached data from queue.")
+                        Log.d("NotificationListener", "EventSink is ready. Sending cached data from queue: $pending")
                         eventSink?.success(pending)
                     }
                 }
                 pendingNotificationQueue.clear()
             }
             Handler(Looper.getMainLooper()).post {
-                Log.d("NotificationListener", "EventSink is ready. Sending data to Flutter.")
+                Log.d("NotificationListener", "EventSink is ready. Sending data to Flutter: $data")
                 eventSink?.success(data)
             }
         }
@@ -167,7 +173,13 @@ class NotificationListener : NotificationListenerService() {
         // 永远、无条件地将数据发送到Flutter。
         // Flutter引擎可能会缓冲它，直到App返回前台。
         handler.post {
-            eventSink?.success(notificationData)
+            Log.d("NotificationListener", "onNotificationPosted: sending to Flutter: $notificationData, eventSink=$eventSink")
+            if (eventSink == null) {
+                pendingNotificationQueue.add(notificationData)
+                Log.d("NotificationListener", "onNotificationPosted: EventSink not ready, caching data. Queue size: ${pendingNotificationQueue.size}")
+            } else {
+                eventSink?.success(notificationData)
+            }
         }
 
         // 如果App在后台，我们额外再显示一个系统通知作为备用。
