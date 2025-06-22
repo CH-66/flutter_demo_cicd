@@ -35,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, double> _monthlySummary = {'income': 0.0, 'expense': 0.0};
   List<tx_model.Transaction> _recentTransactions = [];
   StreamSubscription? _notificationSubscription;
+  final Set<String> _processedNotifications = {}; // 用于防止重复处理
 
   @override
   void initState() {
@@ -85,6 +86,21 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onNotificationReceived(dynamic data) async {
     if (data is Map<dynamic, dynamic>) {
       final notificationData = data.cast<String, dynamic>();
+
+      // 反重复机制
+      final notificationSignature = "${notificationData['source']}-${notificationData['title']}-${notificationData['text']}";
+      if (_processedNotifications.contains(notificationSignature)) {
+        if (kDebugMode) {
+          print("重复的通知，已忽略: $notificationSignature");
+        }
+        return;
+      }
+      _processedNotifications.add(notificationSignature);
+      // 10秒后移除签名，防止内存无限增长
+      Future.delayed(const Duration(seconds: 10), () {
+        _processedNotifications.remove(notificationSignature);
+      });
+      
       await _debugLogService.addLog(notificationData);
 
       final parsedData = _parserService.parse(notificationData);
