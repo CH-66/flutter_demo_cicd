@@ -22,6 +22,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // 定义方法通道
+  static const _methodChannel = MethodChannel('com.example.flutter_githubaction/methods');
+
   final _notificationService = NotificationChannelService();
   final _parserService = NotificationParserService();
   final _debugLogService = DebugLogService();
@@ -53,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkAndRequestPermissions() async {
+    // 1. 请求常规通知权限
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
     }
@@ -60,8 +64,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenGuide = prefs.getBool('has_seen_notification_guide') ?? false;
 
-    var status = await Permission.notificationListener.status;
-    if (!hasSeenGuide && !status.isGranted) {
+    // 2. 通过我们自己的方法通道检查特殊权限
+    bool isListenerEnabled = false;
+    try {
+      isListenerEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
+    } catch (e) {
+      if (kDebugMode) {
+        print("检查通知监听权限失败: $e");
+      }
+    }
+    
+    // 3. 仅在没看过引导且权限未开启时，才显示引导对话框
+    if (!hasSeenGuide && !isListenerEnabled) {
       _showNotificationAccessGuideDialog();
     }
   }
@@ -81,28 +95,35 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showNotificationAccessGuideDialog() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_notification_guide', true);
-
-    var status = await Permission.notificationListener.status;
+  
+    // 再次检查权限状态，提供更精准的引导
+    bool isListenerEnabled = false;
+    try {
+      isListenerEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
+    } catch (e) {
+      // quiet fail
+    }
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('启用自动记账功能'),
-        content: Text(status.isGranted
+        content: Text(isListenerEnabled
             ? '太棒了！自动记账功能已准备就绪。'
             : '请在接下来的系统设置页面中，找到并开启"flutter_githubaction"的权限。'),
-        actions: [
+        actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('稍后'),
+            child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () {
+              // 直接跳转到"通知使用权"设置页面
               AppSettings.openAppSettings(type: AppSettingsType.notification);
               Navigator.of(context).pop();
             },
-            child: Text(status.isGranted ? '完成' : '去设置'),
+            child: Text(isListenerEnabled ? '完成' : '去设置'),
           ),
         ],
       ),
