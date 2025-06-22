@@ -1,4 +1,4 @@
-package com.example.flutter_githubaction
+package com.autobookkeeping.app
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

@@ -1,4 +1,4 @@
-package com.example.flutter_githubaction
+package com.autobookkeeping.app
 
 import android.Manifest
 import android.content.ComponentName
