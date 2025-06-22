@@ -1,4 +1,4 @@
-import 'package:flutter_demo/models/transaction_data.dart';
+import 'transaction_data.dart';
 
 class Transaction {
   final int? id;

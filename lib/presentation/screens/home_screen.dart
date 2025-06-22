@@ -6,11 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/transaction.dart' as tx_model;
-import '../models/transaction_data.dart';
-import '../services/notification_parser_service.dart';
-import '../services/debug_log_service.dart';
-import '../services/transaction_service.dart';
+import '../../models/transaction.dart' as tx_model;
+import '../../models/transaction_data.dart';
+import '../../services/notification_parser_service.dart';
+import '../../services/debug_log_service.dart';
+import '../../services/transaction_service.dart';
 import 'debug_screen.dart';
 
 class HomeScreen extends StatefulWidget {
