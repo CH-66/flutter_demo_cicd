@@ -34,24 +34,19 @@ class NotificationListener : NotificationListenerService() {
         val notification = sbn.notification
         val extras = notification.extras
 
-        // 仅处理微信和支付宝的通知 (示例包名)
-        if (packageName in listOf("com.tencent.mm", "com.eg.android.AlipayGphone")) {
-            val title = extras.getString(Notification.EXTRA_TITLE)
-            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        val title = extras.getString(Notification.EXTRA_TITLE)
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 
-            Log.i("NotificationListener", "Received notification: $title - $text")
-            
-            // TODO: 在这里添加解析逻辑，从 title 和 text 中提取金额、商户等信息
-
-            val data = mapOf(
-                "title" to title,
-                "text" to text,
-                "source" to packageName
-            )
-            
-            // 将解析后的数据发送到Flutter端
-            eventSink?.success(data)
-        }
+        Log.i("NotificationListener", "Received notification from $packageName: $title - $text")
+        
+        val data = mapOf(
+            "source" to packageName,
+            "title" to title,
+            "text" to text
+        )
+        
+        // 将所有解析后的数据发送到Flutter端
+        eventSink?.success(data)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
