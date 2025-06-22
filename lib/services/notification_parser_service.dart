@@ -1,5 +1,6 @@
 import '../models/transaction_data.dart';
 import 'notification_parsers/alipay_parsers.dart';
+import 'notification_parsers/fallback_parsers.dart';
 import 'notification_parsers/notification_parser.dart';
 import 'notification_parsers/wechat_parsers.dart';
 
@@ -14,11 +15,13 @@ class NotificationParserService {
       AlipayExpenseParserV1(),
       AlipayExpenseParserV2(),
       AlipayIncomeParserV1(),
+      AlipayFallbackParser(),
     ],
     wechatPackage: [
       WeChatExpenseParserV1(),
       WeChatExpenseParserV2(),
       WeChatIncomeParserV1(),
+      WeChatFallbackParser(),
     ],
   };
 
