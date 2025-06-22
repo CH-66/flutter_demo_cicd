@@ -9,15 +9,12 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity(), DefaultLifecycleObserver {
+class MainActivity : FlutterActivity() {
 
     private val METHOD_CHANNEL_NAME = "com.example.flutter_githubaction/methods"
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
@@ -65,29 +62,27 @@ class MainActivity : FlutterActivity(), DefaultLifecycleObserver {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super<FlutterActivity>.onCreate(savedInstanceState)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        super.onCreate(savedInstanceState)
         checkAndRequestNotificationPermission()
         intent?.let { handleIntent(it) }
     }
 
     override fun onStart() {
-        super<FlutterActivity>.onStart()
+        super.onStart()
         NotificationListener.isAppInForeground = true
     }
 
     override fun onStop() {
-        super<FlutterActivity>.onStop()
+        super.onStop()
         NotificationListener.isAppInForeground = false
     }
 
     override fun onDestroy() {
-        ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
-        super<FlutterActivity>.onDestroy()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
-        super<FlutterActivity>.onNewIntent(intent)
+        super.onNewIntent(intent)
         handleIntent(intent)
     }
 
