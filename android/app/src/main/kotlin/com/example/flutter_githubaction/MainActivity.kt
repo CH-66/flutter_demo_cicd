@@ -63,6 +63,11 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 显式启动通知监听服务，确保它能立即作为前台服务运行
+        val serviceIntent = Intent(this, NotificationListener::class.java)
+        startService(serviceIntent)
+        
         checkAndRequestNotificationPermission()
         intent?.let { handleIntent(it) }
     }
