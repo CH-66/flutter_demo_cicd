@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 从 Android 13 开始，发送通知需要此权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 从 Android 9 开始，前台服务需要此权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:label="flutter_githubaction"
