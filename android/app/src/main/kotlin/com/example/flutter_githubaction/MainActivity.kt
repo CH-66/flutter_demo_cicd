@@ -1,18 +1,23 @@
 package com.example.flutter_githubaction
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import android.content.pm.PackageManager
 
 class MainActivity : FlutterActivity() {
 
     private val METHOD_CHANNEL_NAME = "com.example.flutter_githubaction/methods"
+    private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -58,7 +63,22 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        checkAndRequestNotificationPermission()
         intent?.let { handleIntent(it) }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        NotificationListener.isAppInForeground = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        NotificationListener.isAppInForeground = false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -75,6 +95,20 @@ class MainActivity : FlutterActivity() {
             )
             // 通过NotificationListener的静态方法发送数据
             NotificationListener.sendData(notificationData)
+        }
+    }
+
+    private fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // TIRAMISU is Android 13
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+                // You can directly ask for the permission.
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE
+                )
+            }
         }
     }
 }
