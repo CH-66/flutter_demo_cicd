@@ -1,7 +1,128 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  static const _notificationChannel = EventChannel('com.example.flutter_githubaction/notifications');
+  StreamSubscription? _notificationSubscription;
+  
+  final List<Map<dynamic, dynamic>> _debugNotifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPermissionAndStartListening();
+  }
+
+  Future<void> _requestPermissionAndStartListening() async {
+    final status = await Permission.notification.request();
+    if (status.isGranted) {
+      _startListeningToNotifications();
+    } else {
+      _showPermissionDeniedDialog();
+    }
+  }
+
+  void _startListeningToNotifications() {
+    _notificationSubscription = _notificationChannel.receiveBroadcastStream().listen(
+      (dynamic data) {
+        if (data is Map) {
+          setState(() {
+            _debugNotifications.insert(0, data);
+          });
+          _showTransactionConfirmationDialog(data);
+        }
+      },
+      onError: (dynamic error) {
+        if (kDebugMode) {
+          print('Received error: ${error.message}');
+        }
+      },
+      cancelOnError: false,
+    );
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('需要权限'),
+        content: const Text('应用需要访问通知的权限才能自动记账。请在系统设置中开启。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.of(context).pop();
+            },
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTransactionConfirmationDialog(Map<dynamic, dynamic> data) {
+    // TODO: 解析 'title' 和 'text' 来提取真实数据
+    final title = data['title']?.toString() ?? '未知商家';
+    final text = data['text']?.toString() ?? '未知金额';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 16,
+              right: 16,
+              top: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('发现一笔新交易', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text('需要记账吗？', style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 24),
+              Center(child: Text(text, style: Theme.of(context).textTheme.displaySmall)),
+              const SizedBox(height: 16),
+              Center(child: Text(title, style: Theme.of(context).textTheme.bodyLarge)),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('忽略')),
+                  const SizedBox(width: 8),
+                  FilledButton(onPressed: () { /* TODO: Save transaction */ Navigator.of(context).pop(); }, child: const Text('确认记账')),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -14,28 +135,68 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              // TODO: Navigate to settings screen
-            },
+            onPressed: () {},
           ),
         ],
         backgroundColor: theme.colorScheme.surface,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
-        children: const [
-          _SummaryCard(),
-          SizedBox(height: 16),
-          _ChartCard(),
-          SizedBox(height: 16),
-          _TransactionsCard(),
+        children: [
+          if (kDebugMode) _DebugCard(notifications: _debugNotifications),
+          const _SummaryCard(),
+          const SizedBox(height: 16),
+          const _ChartCard(),
+          const SizedBox(height: 16),
+          const _TransactionsCard(),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navigate to add transaction screen
-        },
+        onPressed: () {},
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _DebugCard extends StatelessWidget {
+  const _DebugCard({required this.notifications});
+  final List<Map<dynamic, dynamic>> notifications;
+
+  @override
+  Widget build(BuildContext context) {
+    if (notifications.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      color: Colors.yellow.shade100,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Debug: 接收到的原始通知', style: Theme.of(context).textTheme.titleMedium),
+            const Divider(),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: notifications.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final notification = notifications[index];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Source: ${notification['source']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text("Title: ${notification['title']}"),
+                    Text("Text: ${notification['text']}"),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

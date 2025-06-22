@@ -48,7 +48,7 @@ jobs:
       #   run: flutter test --coverage
 
       - name: 🏗️ Build APKs
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --debug --split-per-abi
 
       - name: 📦 Prepare artifacts
         run: |
