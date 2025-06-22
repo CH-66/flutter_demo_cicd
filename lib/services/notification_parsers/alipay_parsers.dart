@@ -57,4 +57,24 @@ class AlipayIncomeParserV1 implements NotificationParser {
     }
     return null;
   }
+}
+
+class AlipayExpenseParserV3 implements NotificationParser {
+  @override
+  ParsedTransaction? parse(String title, String text) {
+    final reg = RegExp(r'你有一笔([\d.]+)元的支出');
+    final match = reg.firstMatch(text);
+    if (match != null) {
+      final amount = double.tryParse(match.group(1)!);
+      if (amount != null) {
+        return ParsedTransaction(
+          amount: amount,
+          merchant: '支付宝',
+          type: TransactionType.expense,
+          source: 'Alipay',
+        );
+      }
+    }
+    return null;
+  }
 } 
