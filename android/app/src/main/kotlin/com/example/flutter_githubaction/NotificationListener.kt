@@ -21,12 +21,20 @@ class NotificationListener : NotificationListenerService() {
         private const val EVENT_CHANNEL_NAME = "com.example.flutter_githubaction/notifications"
         private var eventSink: EventChannel.EventSink? = null
         var isAppInForeground = false // 全局变量，用于精确跟踪App状态
+        // 缓存变量，用于处理Flutter引擎启动前的通知
+        private var pendingNotificationData: Map<String, Any?>? = null
 
         fun configure(flutterEngine: FlutterEngine) {
             val eventChannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL_NAME)
             eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
+                    // 当Flutter端开始监听时，检查是否有待处理的通知数据
+                    pendingNotificationData?.let {
+                        Log.d("NotificationListener", "Flutter is ready. Sending cached data.")
+                        sendData(it)
+                        pendingNotificationData = null
+                    }
                 }
                 override fun onCancel(arguments: Any?) {
                     eventSink = null
@@ -35,7 +43,14 @@ class NotificationListener : NotificationListenerService() {
         }
         
         fun sendData(data: Map<String, Any?>) {
+            if (eventSink == null) {
+                // 如果Flutter端还没准备好，就缓存数据
+                pendingNotificationData = data
+                Log.d("NotificationListener", "EventSink not ready. Caching notification data.")
+                return
+            }
             Handler(Looper.getMainLooper()).post {
+                Log.d("NotificationListener", "EventSink is ready. Sending data to Flutter.")
                 eventSink?.success(data)
             }
         }
