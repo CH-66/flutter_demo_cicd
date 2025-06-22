@@ -10,12 +10,14 @@ import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
+import java.util.Locale
 
-class NotificationListener : NotificationListenerService() {
+class NotificationListener : NotificationListenerService(), TextToSpeech.OnInitListener {
 
     companion object {
         private const val EVENT_CHANNEL_NAME = "com.example.flutter_githubaction/notifications"
@@ -42,6 +44,7 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var tts: TextToSpeech // 语音引擎
     
     // 用于我们自己发送通知的配置
     private val NOTIFICATION_CHANNEL_ID = "transaction_alerts_v2"
@@ -51,6 +54,29 @@ class NotificationListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        // 初始化TTS引擎
+        tts = TextToSpeech(this, this)
+    }
+
+    override fun onDestroy() {
+        // 释放TTS资源
+        if (::tts.isInitialized) {
+            tts.stop()
+            tts.shutdown()
+        }
+        super.onDestroy()
+    }
+
+    // TTS初始化完成时的回调
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts.setLanguage(Locale.CHINA)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.e("TTS", "The Language specified is not supported!")
+            }
+        } else {
+            Log.e("TTS", "TTS Initialization Failed!")
+        }
     }
     
     // 创建我们App专用的通知渠道
@@ -123,6 +149,16 @@ class NotificationListener : NotificationListenerService() {
 
         val contentTitle = "有新的${sourceAppName}交易通知"
         val contentText = "点击查看并记账"
+
+        // --- 决定性实验：增加语音播报 ---
+        try {
+             val textToSpeak = "收到来自${sourceAppName}的记账提醒"
+             tts.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, "")
+             Log.d("NotificationListener_TTS", "Attempted to speak: '$textToSpeak'")
+        } catch (e: Exception) {
+            Log.e("NotificationListener_TTS", "Error speaking notification", e)
+        }
+        // --- 实验代码结束 ---
 
         // 创建一个意图：当用户点击通知时，打开我们的MainActivity
         val openAppIntent = Intent(applicationContext, MainActivity::class.java).apply {
