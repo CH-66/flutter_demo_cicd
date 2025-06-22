@@ -47,15 +47,33 @@ class NotificationListener : NotificationListenerService(), TextToSpeech.OnInitL
     private lateinit var tts: TextToSpeech // 语音引擎
     
     // 用于我们自己发送通知的配置
+    private val FOREGROUND_CHANNEL_ID = "foreground_service_channel"
+    private val FOREGROUND_CHANNEL_NAME = "服务运行状态"
+    private val FOREGROUND_NOTIFICATION_ID = 101
+
     private val NOTIFICATION_CHANNEL_ID = "transaction_alerts_v2"
     private val NOTIFICATION_CHANNEL_NAME = "交易记账提醒"
     private var notificationIdCounter = 2024 // 通知ID的起始值，避免冲突
 
     override fun onCreate() {
         super.onCreate()
+        // 必须先创建渠道，再创建通知
+        createForegroundNotificationChannel()
         createNotificationChannel()
+        
         // 初始化TTS引擎
         tts = TextToSpeech(this, this)
+
+        // 启动前台服务
+        val notification = NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
+            .setContentTitle("记账助手运行中")
+            .setContentText("正在监听记账通知")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setOngoing(true) // 设置为持续性通知
+            .build()
+        
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+        Log.d("NotificationListener", "Service started in foreground.")
     }
 
     override fun onDestroy() {
@@ -64,6 +82,8 @@ class NotificationListener : NotificationListenerService(), TextToSpeech.OnInitL
             tts.stop()
             tts.shutdown()
         }
+        stopForeground(true) // 停止前台服务
+        Log.d("NotificationListener", "Service has been destroyed.")
         super.onDestroy()
     }
 
@@ -79,6 +99,19 @@ class NotificationListener : NotificationListenerService(), TextToSpeech.OnInitL
         }
     }
     
+    // 为前台服务创建通知渠道
+    private fun createForegroundNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                FOREGROUND_CHANNEL_ID,
+                FOREGROUND_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_LOW // 设置为低优先级，用户不会收到声音提醒
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(serviceChannel)
+        }
+    }
+
     // 创建我们App专用的通知渠道
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
