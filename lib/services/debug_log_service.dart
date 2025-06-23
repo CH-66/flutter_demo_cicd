@@ -1,90 +1,33 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:async';
 
-class DebugLog {
-  final int? id;
-  final String source;
-  final String? title;
-  final String? text;
-  final DateTime timestamp;
-
-  DebugLog({
-    this.id,
-    required this.source,
-    this.title,
-    this.text,
-    required this.timestamp,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'source': source,
-      'title': title,
-      'text': text,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-
-  factory DebugLog.fromMap(Map<String, dynamic> map) {
-    return DebugLog(
-      id: map['id'],
-      source: map['source'],
-      title: map['title'],
-      text: map['text'],
-      timestamp: DateTime.parse(map['timestamp']),
-    );
-  }
-}
-
-
+/// A singleton service for managing in-memory debug logs.
+/// This ensures a single, consistent log store across the entire app.
 class DebugLogService {
-  static Database? _database;
-  static const String _tableName = 'debug_logs';
+  // Private constructor for the singleton
+  DebugLogService._privateConstructor();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB();
-    return _database!;
+  // The single instance
+  static final DebugLogService _instance = DebugLogService._privateConstructor();
+
+  // Factory constructor to return the single instance
+  factory DebugLogService() {
+    return _instance;
   }
 
-  Future<Database> _initDB() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'debug_logs.db');
+  final List<Map<String, dynamic>> _logs = [];
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE $_tableName (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source TEXT NOT NULL,
-            title TEXT,
-            text TEXT,
-            timestamp TEXT NOT NULL
-          )
-        ''');
-      },
-    );
+  /// Adds a new log entry to the top of the list.
+  Future<void> addLog(Map<String, dynamic> log) async {
+    _logs.insert(0, {'timestamp': DateTime.now(), ...log});
   }
 
-  Future<void> addLog(Map<dynamic, dynamic> notificationData) async {
-    final db = await database;
-    final log = DebugLog(
-      source: notificationData['source']?.toString() ?? 'unknown',
-      title: notificationData['title']?.toString(),
-      text: notificationData['text']?.toString(),
-      timestamp: DateTime.now(),
-    );
-    await db.insert(_tableName, log.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  /// Returns a copy of all current logs.
+  List<Map<String, dynamic>> getLogs() {
+    return List.from(_logs);
   }
 
-  Future<List<DebugLog>> getAllLogs() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(_tableName, orderBy: 'timestamp DESC');
-    return List.generate(maps.length, (i) {
-      return DebugLog.fromMap(maps[i]);
-    });
+  /// Clears all logs from memory.
+  void clearLogs() {
+    _logs.clear();
   }
 } 

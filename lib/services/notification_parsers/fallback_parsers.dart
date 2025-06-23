@@ -1,80 +1,58 @@
-import '../../../models/transaction_data.dart';
+import '../../models/transaction_data.dart';
 import 'notification_parser.dart';
 
-/// 一个备用的、基于关键字的支付宝解析器，作为最后手段。
+/// A fallback parser for Alipay notifications that couldn't be parsed by more specific rules.
+/// It attempts a very generic pattern match.
 class AlipayFallbackParser implements NotificationParser {
   @override
-  ParsedTransaction? parse(String title, String text) {
-    try {
-      // 类型判断：简单地通过关键字判断
-      final type = (text.contains('支出') || text.contains('支付') || text.contains('付款'))
-          ? TransactionType.expense
-          : (text.contains('收入') || text.contains('收款'))
-              ? TransactionType.income
-              : null;
-      
-      if (type == null) return null;
+  ParsedTransaction? parse(String packageName, String title, String text) {
+    // This regex is very generic, looking for any mention of "付款" (payment)
+    // and a number. This is a last-ditch effort.
+    final regex = RegExp(r'付款([\d.]+)元');
+    final match = regex.firstMatch(text);
 
-      // 金额提取：只提取"X元"前的数字
-      final reg = RegExp(r'([\d.]+)元');
-      final match = reg.firstMatch(text);
-      final amountString = match?.group(1);
-      if (amountString == null || amountString.isEmpty) return null;
-      
-      final amount = double.tryParse(amountString);
-      if (amount == null || amount == 0.0) return null;
-
-      // 由于是模糊匹配，我们无法获取精确的商户名，使用一个通用名称
-      final merchant = (type == TransactionType.expense) ? '支付宝支出' : '支付宝收款';
-
+    if (match != null) {
       return ParsedTransaction(
-        amount: amount,
-        merchant: merchant,
-        type: type,
-        source: 'Alipay (Fallback)', // 明确标注为备用解析
+        amount: double.tryParse(match.group(1) ?? '0') ?? 0,
+        merchant: '未知(回退)',
+        type: TransactionType.expense,
+        source: packageName, // Use the original package name
       );
-    } catch (e) {
-      return null;
     }
+
+    // Another generic attempt for income.
+    final incomeRegex = RegExp(r'收款([\d.]+)元');
+    final incomeMatch = incomeRegex.firstMatch(text);
+    if (incomeMatch != null) {
+      return ParsedTransaction(
+        amount: double.tryParse(incomeMatch.group(1) ?? '0') ?? 0,
+        merchant: '未知(回退)',
+        type: TransactionType.income,
+        source: packageName, // Use the original package name
+      );
+    }
+
+    return null;
   }
 }
 
-/// 一个备用的、基于关键字的微信解析器，作为最后手段。
+/// A fallback parser for WeChat notifications.
 class WeChatFallbackParser implements NotificationParser {
   @override
-  ParsedTransaction? parse(String title, String text) {
-     try {
-      // 类型判断
-      final type = (text.contains('支出') || text.contains('支付') || text.contains('付款'))
-          ? TransactionType.expense
-          : (text.contains('收入') || text.contains('收款'))
-              ? TransactionType.income
-              : null;
-      
-      if (type == null) return null;
-
-      // 金额提取：找到'¥'符号后进行截取
-      final
-      moneyIndex = text.indexOf('¥');
-      if (moneyIndex == -1) return null;
-
-      final amountString = text.substring(moneyIndex + 1);
-       if (amountString.isEmpty) return null;
-
-      final amount = double.tryParse(amountString);
-      if (amount == null || amount == 0.0) return null;
-      
-      // 使用通用商户名
-      final merchant = (type == TransactionType.expense) ? '微信支付' : '微信收款';
-
-      return ParsedTransaction(
-        amount: amount,
-        merchant: merchant,
-        type: type,
-        source: 'WeChat (Fallback)', // 明确标注为备用解析
-      );
-    } catch (e) {
-      return null;
+  ParsedTransaction? parse(String packageName, String title, String text) {
+    // WeChat often uses "微信支付" as the title for payment notifications.
+    if (title == '微信支付') {
+      final regex = RegExp(r'收款([\d.]+)元');
+      final match = regex.firstMatch(text);
+      if (match != null) {
+        return ParsedTransaction(
+          amount: double.tryParse(match.group(1) ?? '0') ?? 0,
+          merchant: '未知(回退)',
+          type: TransactionType.income,
+          source: packageName, // Use the original package name
+        );
+      }
     }
+    return null;
   }
 } 

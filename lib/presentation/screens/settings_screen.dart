@@ -10,7 +10,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const _methodChannel = MethodChannel('com.example.flutter_githubaction/methods');
+  static const _methodChannel = MethodChannel('com.autobookkeeping.app/methods');
   bool _isListenerEnabled = false;
   bool _isLoading = true;
 

@@ -23,7 +23,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // 定义方法通道
   static const _methodChannel = MethodChannel('com.autobookkeeping.app/methods');
 
@@ -36,16 +36,26 @@ class _HomeScreenState extends State<HomeScreen> {
   List<tx_model.Transaction> _recentTransactions = [];
   StreamSubscription? _notificationSubscription;
   final Set<String> _processedNotifications = {}; // 用于防止重复处理
+  AppLifecycleState? _appLifecycleState;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _appLifecycleState = WidgetsBinding.instance.lifecycleState; // Get initial state
     _checkAndRequestPermissions();
     _loadData();
     _notificationService.initialize();
     _notificationSubscription =
         _notificationService.notificationStream.listen(_onNotificationReceived);
+    // Restore the fallback mechanism to handle cases where the event stream
+    // might be delayed on certain OSes during a cold start.
     _fetchPendingIntentNotification();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
   }
 
   Future<void> _loadData() async {
@@ -87,10 +97,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onNotificationReceived(dynamic data) async {
     if (data is Map<dynamic, dynamic>) {
       final notificationData = data.cast<String, dynamic>();
+      // Check for the string "true" for maximum reliability.
+      final bool isFromManualClick = notificationData['isFromManualClick'] == 'true';
 
       // 反重复机制
-      final notificationSignature = "${notificationData['source']}-${notificationData['title']}-${notificationData['text']}";
-      if (_processedNotifications.contains(notificationSignature)) {
+      final notificationSignature =
+          "${notificationData['source']}-${notificationData['title']}-${notificationData['text']}";
+      
+      // Only check for duplicates if it's a new notification, not one from a manual click.
+      if (!isFromManualClick && _processedNotifications.contains(notificationSignature)) {
         if (kDebugMode) {
           print("重复的通知，已忽略: $notificationSignature");
         }
@@ -106,7 +121,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final parsedData = _parserService.parse(notificationData);
       if (parsedData != null && mounted) {
-        _showTransactionConfirmationDialog(parsedData);
+        // Core logic change: decide how to notify based on app state
+        if (_appLifecycleState == AppLifecycleState.resumed) {
+          // App is in foreground, show in-app dialog
+          _showTransactionConfirmationDialog(parsedData);
+        } else {
+          // App is in background or inactive, request a native system notification
+          try {
+            await _methodChannel.invokeMethod('showBookkeepingNotification', {
+              // Data for displaying the notification
+              'amount': parsedData.amount,
+              'merchant': parsedData.merchant,
+              'type': parsedData.type == TransactionType.income ? '收入' : '支出',
+              
+              // IMPORTANT: Original data for the intent to re-parse later
+              'source': parsedData.source,
+              'title': notificationData['title'], // Pass original title
+              'text': notificationData['text'],   // Pass original text
+            });
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to show native notification: $e');
+            }
+          }
+        }
       }
     }
   }
@@ -186,19 +224,28 @@ class _HomeScreenState extends State<HomeScreen> {
   
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     super.dispose();
   }
 
+  // Restore the method to fetch data from the fallback cache.
   Future<void> _fetchPendingIntentNotification() async {
     const methodChannel = MethodChannel('com.autobookkeeping.app/methods');
     try {
       final data = await methodChannel.invokeMethod('getPendingIntentNotification');
       if (data is Map && data['source'] != null) {
-        _onNotificationReceived(Map<String, dynamic>.from(data));
+        // Use a small delay to ensure this is processed after any potential
+        // race condition with the event channel. The anti-replay check
+        // will prevent double processing.
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _onNotificationReceived(Map<String, dynamic>.from(data));
+        });
       }
     } catch (e) {
-      // 忽略错误
+      if (kDebugMode) {
+        print('Failed to fetch pending intent notification: $e');
+      }
     }
   }
 

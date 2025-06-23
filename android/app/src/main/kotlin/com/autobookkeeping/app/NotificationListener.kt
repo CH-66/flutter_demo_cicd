@@ -169,57 +169,10 @@ class NotificationListener : NotificationListenerService() {
             "text" to text
         )
 
-        // 2. 判断App状态 -> 修改为无条件发送，并额外判断是否需要系统通知
+        // 2. 判断App状态 -> 修改为无条件发送，不再自己创建系统通知
         // 永远、无条件地将数据发送到Flutter。
-        // Flutter引擎可能会缓冲它，直到App返回前台。
         sendData(notificationData)
 
-        // 如果App在后台，我们额外再显示一个系统通知作为备用。
-        // 用户可以点击这个通知直接进入App，
-        // 也可以忽略它，稍后手动打开App，数据同样会被处理。
-        if (!isAppInForeground) {
-            // App 在后台: 显示一个通用的系统通知
-            Log.d("NotificationListener", "App in background. Showing generic system notification as a fallback.")
-            showGenericBookkeepingNotification(notificationData)
-        }
         Log.d("NotificationListener", "--- Notification Processed ---")
-    }
-
-    private fun showGenericBookkeepingNotification(originalData: Map<String, Any?>) {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        val sourceAppName = if (originalData["source"] == "com.eg.android.AlipayGphone") "支付宝" else "微信"
-
-        val contentTitle = "有新的${sourceAppName}交易通知"
-        val contentText = "点击查看并记账"
-
-        // 创建一个意图：当用户点击通知时，打开我们的MainActivity
-        val openAppIntent = Intent(applicationContext, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            action = "SHOW_TRANSACTION_DIALOG" // 自定义一个Action
-            // 将原始通知数据附加到意图中，以便Flutter端接收和处理
-            putExtra("notification_title", originalData["title"] as? String)
-            putExtra("notification_text", originalData["text"] as? String)
-            putExtra("notification_source", originalData["source"] as? String)
-        }
-        // 将普通Intent包装成PendingIntent
-        val openAppPendingIntent: PendingIntent = PendingIntent.getActivity(
-            this,
-            notificationIdCounter, // 使用递增的ID确保每个PendingIntent是唯一的
-            openAppIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // 使用NotificationCompat构建器来创建通知
-        val notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher) // 使用App的启动图标
-            .setContentTitle(contentTitle)
-            .setContentText(contentText)
-            .setPriority(NotificationCompat.PRIORITY_HIGH) // 设置高优先级，确保通知会弹出
-            .setContentIntent(openAppPendingIntent) // 设置点击通知后的意图
-            .setAutoCancel(true) // 用户点击后自动移除通知
-
-        // 使用唯一的ID发送通知，并递增计数器
-        notificationManager.notify(notificationIdCounter++, notificationBuilder.build())
     }
 } 

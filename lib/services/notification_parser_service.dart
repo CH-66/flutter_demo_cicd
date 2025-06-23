@@ -41,7 +41,7 @@ class NotificationParserService {
     }
 
     for (final parser in parsersForApp) {
-      final result = parser.parse(title ?? '', text);
+      final result = parser.parse(packageName, title ?? '', text ?? '');
       if (result != null) {
         return result;
       }
