@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _appLifecycleState = WidgetsBinding.instance.lifecycleState; // Get initial state
     _checkAndRequestPermissions();
     _loadData();
     _notificationService.initialize();
@@ -52,9 +53,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    setState(() {
-      _appLifecycleState = state;
-    });
+    _appLifecycleState = state;
   }
 
   Future<void> _loadData() async {
@@ -96,10 +95,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _onNotificationReceived(dynamic data) async {
     if (data is Map<dynamic, dynamic>) {
       final notificationData = data.cast<String, dynamic>();
+      final bool isFromManualClick = notificationData['isFromManualClick'] as bool? ?? false;
 
       // 反重复机制
-      final notificationSignature = "${notificationData['source']}-${notificationData['title']}-${notificationData['text']}";
-      if (_processedNotifications.contains(notificationSignature)) {
+      final notificationSignature =
+          "${notificationData['source']}-${notificationData['title']}-${notificationData['text']}";
+      
+      // Only check for duplicates if it's a new notification, not one from a manual click.
+      if (!isFromManualClick && _processedNotifications.contains(notificationSignature)) {
         if (kDebugMode) {
           print("重复的通知，已忽略: $notificationSignature");
         }

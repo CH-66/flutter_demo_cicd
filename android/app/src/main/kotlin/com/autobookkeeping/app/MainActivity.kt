@@ -132,7 +132,8 @@ class MainActivity : FlutterActivity() {
             val notificationData = mapOf(
                 "source" to intent.getStringExtra("notification_source"),
                 "title" to intent.getStringExtra("notification_title"),
-                "text" to intent.getStringExtra("notification_text")
+                "text" to intent.getStringExtra("notification_text"),
+                "isFromManualClick" to true // Add a flag to indicate user interaction
             )
             pendingIntentNotification = notificationData // 缓存
             // 通过NotificationListener的静态方法发送数据
