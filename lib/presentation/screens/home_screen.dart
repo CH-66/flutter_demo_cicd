@@ -70,27 +70,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _checkAndRequestPermissions() async {
-    // 1. 请求常规通知权限
+    // We only need to request the notification permission.
+    // The detailed checks are now handled by the HealthCheckScreen.
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenGuide = prefs.getBool('has_seen_notification_guide') ?? false;
-
-    // 2. 通过我们自己的方法通道检查特殊权限
-    bool isListenerEnabled = false;
-    try {
-      isListenerEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
-    } catch (e) {
-      if (kDebugMode) {
-        print("检查通知监听权限失败: $e");
-      }
-    }
-    
-    // 3. 仅在没看过引导且权限未开启时，才显示引导对话框
-    if (!hasSeenGuide && !isListenerEnabled) {
-      _showNotificationAccessGuideDialog();
     }
   }
 
@@ -147,61 +130,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       }
     }
-  }
-
-  Future<void> _showNotificationAccessGuideDialog() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_notification_guide', true);
-  
-    // 再次检查权限状态，提供更精准的引导
-    bool isListenerEnabled = false;
-    try {
-      isListenerEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
-    } catch (e) {
-      // quiet fail
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('启用自动记账功能'),
-        content: RichText(
-          text: TextSpan(
-            style: DefaultTextStyle.of(context).style,
-            children: <TextSpan>[
-              const TextSpan(text: '为了让App能自动捕获交易通知，需要您手动开启两个关键权限：\n\n'),
-              TextSpan(
-                text: '1. 通知使用权：',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(text: '请在列表中找到并开启"记账助手"。\n\n'),
-              TextSpan(
-                text: '2. 后台弹出界面 (或悬浮窗)：',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(text: '这是为了确保App在后台时，也能弹出记账提醒。这个选项通常在"权限管理"中，不同手机名称可能不同。\n'),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('待会再说'),
-          ),
-          FilledButton(
-            onPressed: () {
-              // AppSettings.openAppSettings(type: AppSettingsType.notification) 
-              // 只能精确跳转到"通知使用权"，为了引导用户开启其他权限，
-              // 我们直接跳转到应用自身的设置页，让用户自己找。
-              AppSettings.openAppSettings(type: AppSettingsType.settings);
-              Navigator.of(context).pop();
-            },
-            child: const Text('去设置'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showTransactionConfirmationDialog(ParsedTransaction data) {

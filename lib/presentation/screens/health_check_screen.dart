@@ -52,13 +52,19 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
         title: '通知读取权',
         description: '用于捕获支付宝和微信的交易通知，是实现自动记账的核心。',
         check: _checkNotificationListenerPermission,
-        action: () => AppSettings.openAppSettings(type: AppSettingsType.notification),
+        action: _openNotificationListenerSettings,
       ),
       HealthCheckItem(
         title: '记账提醒横幅',
-        description: '捕获到交易后，App需要此权限以横幅形式弹出记账提醒，否则通知将是静默的。',
+        description: '系统限制我们无法直接检测此项。请您点击前往，并手动确保"智能记账提醒"渠道的"允许横幅"或类似开关已开启。',
         check: _checkBannerPermission,
         action: _openBookkeepingChannelSettings,
+      ),
+      HealthCheckItem(
+        title: '后台电池管理',
+        description: '为了确保App在锁屏后不被系统"杀死"，导致无法记账，请允许App在后台运行或将其设为"无限制"。',
+        check: _checkBatteryOptimization,
+        action: () => AppSettings.openAppSettings(type: AppSettingsType.battery),
       ),
     ];
     _runChecks();
@@ -89,6 +95,15 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
     }
   }
 
+  Future<HealthStatus> _checkBatteryOptimization() async {
+    try {
+      final bool isIgnoring = await _methodChannel.invokeMethod('isIgnoringBatteryOptimizations');
+      return isIgnoring ? HealthStatus.ok : HealthStatus.warning;
+    } catch (e) {
+      return HealthStatus.error;
+    }
+  }
+
   Future<HealthStatus> _checkBannerPermission() async {
     try {
       // IMPORTANCE_HIGH is 4. Anything less means the banner is likely disabled.
@@ -97,6 +112,10 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
     } catch (e) {
       return HealthStatus.error;
     }
+  }
+
+  Future<void> _openNotificationListenerSettings() async {
+    await _methodChannel.invokeMethod('openNotificationListenerSettings');
   }
 
   Future<void> _openBookkeepingChannelSettings() async {
