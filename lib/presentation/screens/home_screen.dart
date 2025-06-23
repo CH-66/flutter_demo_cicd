@@ -123,10 +123,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // App is in background or inactive, request a native system notification
           try {
             await _methodChannel.invokeMethod('showBookkeepingNotification', {
+              // Data for displaying the notification
               'amount': parsedData.amount,
               'merchant': parsedData.merchant,
               'type': parsedData.type == TransactionType.income ? '收入' : '支出',
+              
+              // IMPORTANT: Original data for the intent to re-parse later
               'source': parsedData.source,
+              'title': notificationData['title'], // Pass original title
+              'text': notificationData['text'],   // Pass original text
             });
           } catch (e) {
             if (kDebugMode) {
