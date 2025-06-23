@@ -38,7 +38,7 @@ class _DebugScreenState extends State<DebugScreen> {
 
   // 获取logcat并显示悬浮窗
   Future<void> _fetchLogcat({bool auto = false}) async {
-    const methodChannel = MethodChannel('com.example.flutter_githubaction/methods');
+    const methodChannel = MethodChannel('com.autobookkeeping.app/methods');
     try {
       final logs = await methodChannel.invokeMethod<String>('getLogcat');
       _showLogcatOverlay(logs ?? '无日志', auto: auto);
@@ -115,6 +115,7 @@ class _DebugScreenState extends State<DebugScreen> {
                         onPressed: () {
                           _logcatTimer?.cancel();
                           _logcatOverlay?.remove();
+                          _logcatOverlay = null;
                         },
                         tooltip: '关闭',
                       ),
