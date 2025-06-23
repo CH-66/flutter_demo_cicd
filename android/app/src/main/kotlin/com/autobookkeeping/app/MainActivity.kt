@@ -69,6 +69,42 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_ARGS", "Missing arguments for notification", null)
                         }
                     }
+                    "getNotificationChannelImportance" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val channelId = call.argument<String>("channelId")
+                            if (channelId == null) {
+                                result.error("MISSING_ARG", "channelId is required", null)
+                            } else {
+                                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                                val channel = notificationManager.getNotificationChannel(channelId)
+                                // IMPORTANCE_DEFAULT is 3. Anything less than high (4) is a problem for us.
+                                result.success(channel?.importance ?: 3)
+                            }
+                        } else {
+                            // On older versions, channels don't exist, so we can assume it's "enabled".
+                            // IMPORTANCE_HIGH is 4.
+                            result.success(4) 
+                        }
+                    }
+                    "openNotificationChannelSettings" -> {
+                        val channelId = call.argument<String>("channelId")
+                        if (channelId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                                putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } else {
+                            // Fallback for older Android or if channelId is null
+                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra("app_package", packageName)
+                                putExtra("app_uid", applicationInfo.uid)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

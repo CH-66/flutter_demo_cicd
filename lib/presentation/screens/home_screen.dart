@@ -13,6 +13,7 @@ import '../../services/debug_log_service.dart';
 import '../../services/transaction_service.dart';
 import '../../services/notification_channel_service.dart';
 import 'debug_screen.dart';
+import 'health_check_screen.dart';
 import 'settings_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -48,9 +49,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _notificationService.initialize();
     _notificationSubscription =
         _notificationService.notificationStream.listen(_onNotificationReceived);
-    // Restore the fallback mechanism to handle cases where the event stream
-    // might be delayed on certain OSes during a cold start.
     _fetchPendingIntentNotification();
+    _handleFirstLaunch();
   }
 
   @override
@@ -246,6 +246,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('Failed to fetch pending intent notification: $e');
       }
+    }
+  }
+
+  Future<void> _handleFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Use a unique key for this specific onboarding flow
+    final bool hasCompletedOnboarding = prefs.getBool('v1_has_completed_health_check') ?? false;
+
+    if (!hasCompletedOnboarding && mounted) {
+      // Use a post-frame callback to ensure the home screen is built before navigating.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const HealthCheckScreen(isFirstLaunch: true)),
+        ).then((_) {
+            // After the user completes the first launch screen, mark it as done.
+            prefs.setBool('v1_has_completed_health_check', true);
+        });
+      });
     }
   }
 

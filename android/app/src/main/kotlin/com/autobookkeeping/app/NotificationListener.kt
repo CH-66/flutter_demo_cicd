@@ -80,15 +80,10 @@ class NotificationListener : NotificationListenerService() {
     private val FOREGROUND_CHANNEL_NAME = "服务运行状态"
     private val FOREGROUND_NOTIFICATION_ID = 101
 
-    private val NOTIFICATION_CHANNEL_ID = "transaction_alerts_v2"
-    private val NOTIFICATION_CHANNEL_NAME = "交易记账提醒"
-    private var notificationIdCounter = 2024 // 通知ID的起始值，避免冲突
-
     override fun onCreate() {
         super.onCreate()
         // 必须先创建渠道，再创建通知
         createForegroundNotificationChannel()
-        createNotificationChannel()
 
         // 启动前台服务
         val notification = NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
@@ -121,22 +116,6 @@ class NotificationListener : NotificationListenerService() {
         }
     }
 
-    // 创建我们App专用的通知渠道
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                NOTIFICATION_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "接收到支付通知时，弹出记账提醒"
-            }
-            val notificationManager: NotificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-    
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         if (sbn == null) return

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:flutter_demo/presentation/screens/settings/data_management_screen.dart';
+import 'package:flutter_demo/presentation/screens/settings/support_screen.dart';
+
+import 'health_check_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -129,6 +133,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: () {
                       AppSettings.openAppSettings(type: AppSettingsType.notification);
                     },
+                  ),
+                  const SettingsHeader(title: '通用'),
+                  ListTile(
+                    leading: const Icon(Icons.health_and_safety_outlined),
+                    title: const Text('权限健康检查'),
+                    subtitle: const Text('检查App核心功能所需的权限是否正常'),
+                    onTap: () {
+                       Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const HealthCheckScreen()),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.notifications_on_outlined),
+                    title: const Text('通知设置'),
                   ),
                 ],
               ),
