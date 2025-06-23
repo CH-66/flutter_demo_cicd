@@ -23,7 +23,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // 定义方法通道
   static const _methodChannel = MethodChannel('com.autobookkeeping.app/methods');
 
@@ -36,16 +36,25 @@ class _HomeScreenState extends State<HomeScreen> {
   List<tx_model.Transaction> _recentTransactions = [];
   StreamSubscription? _notificationSubscription;
   final Set<String> _processedNotifications = {}; // 用于防止重复处理
+  AppLifecycleState? _appLifecycleState;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAndRequestPermissions();
     _loadData();
     _notificationService.initialize();
     _notificationSubscription =
         _notificationService.notificationStream.listen(_onNotificationReceived);
     _fetchPendingIntentNotification();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    setState(() {
+      _appLifecycleState = state;
+    });
   }
 
   Future<void> _loadData() async {
@@ -106,7 +115,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final parsedData = _parserService.parse(notificationData);
       if (parsedData != null && mounted) {
-        _showTransactionConfirmationDialog(parsedData);
+        // Core logic change: decide how to notify based on app state
+        if (_appLifecycleState == AppLifecycleState.resumed) {
+          // App is in foreground, show in-app dialog
+          _showTransactionConfirmationDialog(parsedData);
+        } else {
+          // App is in background or inactive, request a native system notification
+          try {
+            await _methodChannel.invokeMethod('showBookkeepingNotification', {
+              'amount': parsedData.amount,
+              'merchant': parsedData.merchant,
+              'type': parsedData.type == TransactionType.income ? '收入' : '支出',
+              'source': parsedData.source,
+            });
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to show native notification: $e');
+            }
+          }
+        }
       }
     }
   }
@@ -186,6 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
   
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     super.dispose();
   }

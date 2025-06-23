@@ -15,11 +15,20 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import androidx.core.app.NotificationCompat
 
 class MainActivity : FlutterActivity() {
 
     private val METHOD_CHANNEL_NAME = "com.autobookkeeping.app/methods"
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
+    
+    // Channel for bookkeeping notifications sent from Flutter
+    private val BOOKKEEPING_CHANNEL_ID = "intelligent_bookkeeping_alerts"
+    private var notificationIdCounter = 3000 // Start from a high number to avoid conflicts
 
     companion object {
         var pendingIntentNotification: Map<String, String?>? = null
@@ -50,6 +59,15 @@ class MainActivity : FlutterActivity() {
                         result.success(pendingIntentNotification)
                         pendingIntentNotification = null
                     }
+                    "showBookkeepingNotification" -> {
+                        val args = call.arguments as? Map<String, Any>
+                        if (args != null) {
+                            showBookkeepingNotification(args)
+                            result.success(true)
+                        } else {
+                            result.error("INVALID_ARGS", "Missing arguments for notification", null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -79,6 +97,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        createBookkeepingNotificationChannel()
 
         // 显式启动通知监听服务，确保它能立即作为前台服务运行
         val serviceIntent = Intent(this, NotificationListener::class.java)
@@ -149,5 +169,60 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             "获取logcat失败: ${e.message}"
         }
+    }
+
+    private fun createBookkeepingNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                BOOKKEEPING_CHANNEL_ID,
+                "智能记账提醒",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "成功解析交易后，由App主动发出的记账提醒"
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun showBookkeepingNotification(data: Map<String, Any>) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val amount = data["amount"] as? Double ?: 0.0
+        val merchant = data["merchant"] as? String ?: "未知"
+        val type = data["type"] as? String ?: "交易"
+        val source = data["source"] as? String ?: "未知来源"
+
+        val contentTitle = "新的${type}交易"
+        val contentText = "金额: ${"%.2f".format(amount)}, 商家: $merchant. 点击记账。"
+
+        // Create an intent that will open the app when the notification is tapped.
+        val openAppIntent = Intent(applicationContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            action = "SHOW_TRANSACTION_DIALOG"
+            // We pass the original data back so the app can show the dialog.
+            putExtra("notification_source", source)
+            putExtra("notification_title", contentTitle)
+            putExtra("notification_text", contentText)
+        }
+
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
+            this,
+            notificationIdCounter,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, BOOKKEEPING_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(contentTitle)
+            .setContentText(contentText)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        notificationManager.notify(notificationIdCounter++, notification)
     }
 }
