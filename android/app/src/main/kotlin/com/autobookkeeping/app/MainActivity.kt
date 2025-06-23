@@ -31,7 +31,7 @@ class MainActivity : FlutterActivity() {
     private var notificationIdCounter = 3000 // Start from a high number to avoid conflicts
 
     companion object {
-        var pendingIntentNotification: Map<String, String?>? = null
+        var pendingIntentNotification: Map<String, Any?>? = null
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
