@@ -30,10 +30,6 @@ class MainActivity : FlutterActivity() {
     private val BOOKKEEPING_CHANNEL_ID = "intelligent_bookkeeping_alerts"
     private var notificationIdCounter = 3000 // Start from a high number to avoid conflicts
 
-    companion object {
-        var pendingIntentNotification: Map<String, Any?>? = null
-    }
-
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // 将Flutter引擎的通信能力注册给NotificationListener的静态方法
@@ -54,10 +50,6 @@ class MainActivity : FlutterActivity() {
                     "getLogcat" -> {
                         val logs = getLogcatLogs()
                         result.success(logs)
-                    }
-                    "getPendingIntentNotification" -> {
-                        result.success(pendingIntentNotification)
-                        pendingIntentNotification = null
                     }
                     "showBookkeepingNotification" -> {
                         val args = call.arguments as? Map<String, Any>
@@ -135,8 +127,6 @@ class MainActivity : FlutterActivity() {
                 "text" to intent.getStringExtra("notification_text"),
                 "isFromManualClick" to true // Add a flag to indicate user interaction
             )
-            pendingIntentNotification = notificationData // 缓存
-            // 通过NotificationListener的静态方法发送数据
             NotificationListener.sendData(notificationData)
         }
     }

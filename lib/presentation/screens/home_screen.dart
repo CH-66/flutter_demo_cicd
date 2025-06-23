@@ -48,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _notificationService.initialize();
     _notificationSubscription =
         _notificationService.notificationStream.listen(_onNotificationReceived);
-    _fetchPendingIntentNotification();
   }
 
   @override
@@ -224,18 +223,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     super.dispose();
-  }
-
-  Future<void> _fetchPendingIntentNotification() async {
-    const methodChannel = MethodChannel('com.autobookkeeping.app/methods');
-    try {
-      final data = await methodChannel.invokeMethod('getPendingIntentNotification');
-      if (data is Map && data['source'] != null) {
-        _onNotificationReceived(Map<String, dynamic>.from(data));
-      }
-    } catch (e) {
-      // 忽略错误
-    }
   }
 
   @override
