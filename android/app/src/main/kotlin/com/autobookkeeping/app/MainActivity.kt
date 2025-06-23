@@ -134,7 +134,7 @@ class MainActivity : FlutterActivity() {
                 "source" to intent.getStringExtra("notification_source"),
                 "title" to intent.getStringExtra("notification_title"),
                 "text" to intent.getStringExtra("notification_text"),
-                "isFromManualClick" to true // Add a flag to indicate user interaction
+                "isFromManualClick" to "true"
             )
             // Restore caching to the static variable as a fallback.
             pendingIntentNotification = notificationData

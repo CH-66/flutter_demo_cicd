@@ -97,7 +97,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _onNotificationReceived(dynamic data) async {
     if (data is Map<dynamic, dynamic>) {
       final notificationData = data.cast<String, dynamic>();
-      final bool isFromManualClick = notificationData['isFromManualClick'] as bool? ?? false;
+      // Check for the string "true" for maximum reliability.
+      final bool isFromManualClick = notificationData['isFromManualClick'] == 'true';
 
       // 反重复机制
       final notificationSignature =
