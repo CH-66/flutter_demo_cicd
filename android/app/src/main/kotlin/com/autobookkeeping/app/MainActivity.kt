@@ -160,15 +160,25 @@ class MainActivity : FlutterActivity() {
     // 新增：获取最近200行logcat日志
     private fun getLogcatLogs(): String {
         return try {
-            val process = Runtime.getRuntime().exec("logcat -d -t 200")
+            // We get all recent logs and then filter them by our app's package name
+            // to provide clean, relevant output.
+            val process = Runtime.getRuntime().exec("logcat -d")
             val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val logs = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                logs.append(line).append('\n')
+            val packageName = context.packageName
+            val relevantLogs = StringBuilder()
+
+            reader.forEachLine { line ->
+                if (line.contains(packageName)) {
+                    relevantLogs.append(line).append('\n')
+                }
             }
             reader.close()
-            logs.toString()
+
+            if (relevantLogs.isNotEmpty()) {
+                relevantLogs.toString()
+            } else {
+                "No logs found for package: $packageName"
+            }
         } catch (e: Exception) {
             "获取logcat失败: ${e.message}"
         }
