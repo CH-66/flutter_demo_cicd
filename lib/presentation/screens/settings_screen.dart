@@ -179,8 +179,4 @@ class SettingsHeader extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SettingsRow extends StatelessWidget {
-  // ... (rest of the class is unchanged)
 } 
