@@ -189,31 +189,37 @@ class MainActivity : FlutterActivity() {
     private fun showBookkeepingNotification(data: Map<String, Any>) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        // --- Data for displaying the notification ---
         val amount = data["amount"] as? Double ?: 0.0
         val merchant = data["merchant"] as? String ?: "未知"
         val type = data["type"] as? String ?: "交易"
-        val source = data["source"] as? String ?: "未知来源"
-
         val contentTitle = "新的${type}交易"
         val contentText = "金额: ${"%.2f".format(amount)}, 商家: $merchant. 点击记账。"
+
+        // --- Data for the intent (to be re-parsed by Flutter) ---
+        // This MUST be the original data from the payment app notification
+        val source = data["source"] as? String ?: "unknown"
+        val originalTitle = data["title"] as? String ?: "" // Assume Flutter sends this back
+        val originalText = data["text"] as? String ?: ""   // Assume Flutter sends this back
 
         // Create an intent that will open the app when the notification is tapped.
         val openAppIntent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             action = "SHOW_TRANSACTION_DIALOG"
-            // We pass the original data back so the app can show the dialog.
+            // IMPORTANT: Pass the ORIGINAL data back, so Flutter can re-parse it consistently.
             putExtra("notification_source", source)
-            putExtra("notification_title", contentTitle)
-            putExtra("notification_text", contentText)
+            putExtra("notification_title", originalTitle) // Use original title
+            putExtra("notification_text", originalText)   // Use original text
         }
 
         val pendingIntent: PendingIntent = PendingIntent.getActivity(
             this,
-            notificationIdCounter,
+            notificationIdCounter, // Use unique request code
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Build the notification with the clean, formatted text
         val notification = NotificationCompat.Builder(this, BOOKKEEPING_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(contentTitle)
