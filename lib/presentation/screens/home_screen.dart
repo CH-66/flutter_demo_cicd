@@ -48,6 +48,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _notificationService.initialize();
     _notificationSubscription =
         _notificationService.notificationStream.listen(_onNotificationReceived);
+    // Restore the fallback mechanism to handle cases where the event stream
+    // might be delayed on certain OSes during a cold start.
+    _fetchPendingIntentNotification();
   }
 
   @override
@@ -223,6 +226,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _notificationSubscription?.cancel();
     super.dispose();
+  }
+
+  // Restore the method to fetch data from the fallback cache.
+  Future<void> _fetchPendingIntentNotification() async {
+    const methodChannel = MethodChannel('com.autobookkeeping.app/methods');
+    try {
+      final data = await methodChannel.invokeMethod('getPendingIntentNotification');
+      if (data is Map && data['source'] != null) {
+        // Use a small delay to ensure this is processed after any potential
+        // race condition with the event channel. The anti-replay check
+        // will prevent double processing.
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _onNotificationReceived(Map<String, dynamic>.from(data));
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to fetch pending intent notification: $e');
+      }
+    }
   }
 
   @override

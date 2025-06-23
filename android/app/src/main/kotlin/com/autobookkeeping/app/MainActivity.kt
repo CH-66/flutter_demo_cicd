@@ -30,6 +30,11 @@ class MainActivity : FlutterActivity() {
     private val BOOKKEEPING_CHANNEL_ID = "intelligent_bookkeeping_alerts"
     private var notificationIdCounter = 3000 // Start from a high number to avoid conflicts
 
+    companion object {
+        // Restore the static variable. This acts as a reliable fallback cache.
+        var pendingIntentNotification: Map<String, Any?>? = null
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // 将Flutter引擎的通信能力注册给NotificationListener的静态方法
@@ -50,6 +55,10 @@ class MainActivity : FlutterActivity() {
                     "getLogcat" -> {
                         val logs = getLogcatLogs()
                         result.success(logs)
+                    }
+                    "getPendingIntentNotification" -> {
+                        result.success(pendingIntentNotification)
+                        pendingIntentNotification = null // Clear after reading
                     }
                     "showBookkeepingNotification" -> {
                         val args = call.arguments as? Map<String, Any>
@@ -127,6 +136,9 @@ class MainActivity : FlutterActivity() {
                 "text" to intent.getStringExtra("notification_text"),
                 "isFromManualClick" to true // Add a flag to indicate user interaction
             )
+            // Restore caching to the static variable as a fallback.
+            pendingIntentNotification = notificationData
+            // Also send to the primary channel. The first one to deliver wins.
             NotificationListener.sendData(notificationData)
         }
     }
