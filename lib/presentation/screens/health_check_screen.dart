@@ -64,7 +64,7 @@ class _HealthCheckScreenState extends State<HealthCheckScreen> {
         title: '后台电池管理',
         description: '为了确保App在锁屏后不被系统"杀死"，导致无法记账，请允许App在后台运行或将其设为"无限制"。',
         check: _checkBatteryOptimization,
-        action: () => AppSettings.openAppSettings(type: AppSettingsType.battery),
+        action: () => AppSettings.openAppSettings(type: AppSettingsType.batteryOptimization),
       ),
     ];
     _runChecks();
