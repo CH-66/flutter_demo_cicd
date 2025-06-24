@@ -52,7 +52,7 @@
     - [ ] 配置 `build.gradle.kts` 和 `Info.plist`，更新应用版本号、图标等信息。
     - [x] 设置Github Actions CI/CD, 实现自动化构建APK/AppBundle。
     - [ ] 进行多轮回归测试。
-    - [ ] 准备应用商店上架所需材料，发布Beta版本。
+    - [x] 准备应用商店上架所需材料，发布Beta版本。 (详情参见: [应用上架材料清单](./app_store_checklist.md))
 
 ---
 
