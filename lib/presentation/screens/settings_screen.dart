@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
+import 'health_check_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -21,28 +22,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _checkPermissionStatus() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
-      final isEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
+      final bool isEnabled = await _methodChannel.invokeMethod('isNotificationListenerEnabled');
       if (mounted) {
         setState(() {
           _isListenerEnabled = isEnabled;
         });
       }
     } catch (e) {
-       if (mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('检查权限失败: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -84,54 +80,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('设置'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _checkPermissionStatus,
+          ),
+        ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _checkPermissionStatus,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                children: [
-                  ListTile(
-                    leading: Icon(
-                      Icons.notifications_active, 
-                      color: _isListenerEnabled ? theme.colorScheme.primary : theme.colorScheme.error,
-                    ),
-                    title: const Text('通知监听服务状态'),
-                    subtitle: Text(
-                      _isListenerEnabled ? '运行中' : '已禁用或未启动',
-                      style: TextStyle(
-                        color: _isListenerEnabled ? theme.colorScheme.primary : theme.colorScheme.error,
-                        fontWeight: FontWeight.bold,
-                      )
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: _checkPermissionStatus,
-                      tooltip: '刷新状态',
-                    ),
-                  ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.build_circle_outlined),
-                    title: const Text('手动修复服务'),
-                    subtitle: const Text('如果服务状态不正确，可尝试此操作'),
-                    onTap: _runFix,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.open_in_new),
-                    title: const Text('跳转到系统权限页面'),
-                    subtitle: const Text('手动开启或关闭通知读取权限'),
-                    onTap: () {
-                      AppSettings.openAppSettings(type: AppSettingsType.notification);
-                    },
-                  ),
-                ],
-              ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildSettingsList(context),
+    );
+  }
+
+  ListView _buildSettingsList(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListView(
+      children: [
+        ListTile(
+          leading: Icon(
+            Icons.notifications_active,
+            color: _isListenerEnabled ? theme.colorScheme.primary : theme.colorScheme.error,
+          ),
+          title: const Text('通知监听服务状态'),
+          subtitle: Text(
+            _isListenerEnabled ? '运行中' : '已禁用或未启动',
+            style: TextStyle(
+              color: _isListenerEnabled ? theme.colorScheme.primary : theme.colorScheme.error,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          onTap: () => AppSettings.openAppSettings(type: AppSettingsType.notification),
+        ),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.build_circle_outlined),
+          title: const Text('手动修复服务'),
+          subtitle: const Text('如果服务状态不正确，可尝试此操作'),
+          onTap: _runFix,
+        ),
+        ListTile(
+          leading: const Icon(Icons.open_in_new),
+          title: const Text('跳转到系统权限页面'),
+          subtitle: const Text('手动开启或关闭通知读取权限'),
+          onTap: () {
+            AppSettings.openAppSettings(type: AppSettingsType.notification);
+          },
+        ),
+        const SettingsHeader(title: '通用'),
+        ListTile(
+          leading: const Icon(Icons.health_and_safety_outlined),
+          title: const Text('权限健康检查'),
+          subtitle: const Text('检查App核心功能所需的权限是否正常'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HealthCheckScreen()),
+            ).then((_) => _checkPermissionStatus()); // Re-check after returning
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.notifications_on_outlined),
+          title: const Text('通知设置'),
+          subtitle: const Text('管理App的通知渠道和声音'),
+          onTap: () {
+            AppSettings.openAppSettings(type: AppSettingsType.notification);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.security_outlined),
+          title: const Text('隐私政策'),
+          onTap: () {
+            // TODO: Implement privacy policy screen
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class SettingsHeader extends StatelessWidget {
+  final String title;
+  const SettingsHeader({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
       ),
     );
   }
