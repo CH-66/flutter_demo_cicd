@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import '../../models/transaction.dart' as tx_model;
 import '../../models/transaction_data.dart';
 import '../../services/transaction_service.dart';
+import 'edit_transaction_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -52,6 +54,55 @@ class _HistoryScreenState extends State<HistoryScreen> {
       setState(() {
         _selectedMonth = picked;
       });
+      _loadTransactions();
+    }
+  }
+
+  Future<void> _deleteTransaction(int id) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('你确定要删除这条交易记录吗？此操作无法撤销。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _transactionService.deleteTransaction(id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('交易已删除'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        _loadTransactions();
+      }
+    }
+  }
+
+  Future<void> _editTransaction(tx_model.Transaction transaction) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditTransactionScreen(transaction: transaction),
+      ),
+    );
+    if (result == true) {
       _loadTransactions();
     }
   }
@@ -201,21 +252,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const Divider(),
               ...transactions.map((tx) {
                 final isExpense = tx.type == TransactionType.expense;
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isExpense ? Colors.red.shade100 : Colors.green.shade100,
-                    child: Icon(
-                      isExpense ? Icons.arrow_downward : Icons.arrow_upward,
-                      color: isExpense ? Colors.red.shade800 : Colors.green.shade800,
-                    ),
+                return Slidable(
+                  key: ValueKey(tx.id),
+                  endActionPane: ActionPane(
+                    motion: const StretchMotion(),
+                    children: [
+                      SlidableAction(
+                        onPressed: (context) => _editTransaction(tx),
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        icon: Icons.edit,
+                        label: '编辑',
+                      ),
+                      SlidableAction(
+                        onPressed: (context) => _deleteTransaction(tx.id!),
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        icon: Icons.delete,
+                        label: '删除',
+                      ),
+                    ],
                   ),
-                  title: Text(tx.merchant),
-                  subtitle: Text(DateFormat('HH:mm').format(tx.timestamp)),
-                  trailing: Text(
-                    '${isExpense ? '-' : '+'} ¥${tx.amount.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color: isExpense ? Colors.red.shade800 : Colors.green.shade800,
-                      fontWeight: FontWeight.w600,
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isExpense ? Colors.red.shade100 : Colors.green.shade100,
+                      child: Icon(
+                        isExpense ? Icons.arrow_downward : Icons.arrow_upward,
+                        color: isExpense ? Colors.red.shade800 : Colors.green.shade800,
+                      ),
+                    ),
+                    title: Text(tx.merchant),
+                    subtitle: Text(DateFormat('HH:mm').format(tx.timestamp)),
+                    trailing: Text(
+                      '${isExpense ? '-' : '+'} ¥${tx.amount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: isExpense ? Colors.red.shade800 : Colors.green.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 );
