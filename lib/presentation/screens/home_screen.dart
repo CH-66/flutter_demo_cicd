@@ -17,6 +17,7 @@ import 'debug_screen.dart';
 import 'health_check_screen.dart';
 import 'settings_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'add_transaction_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -242,7 +243,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddTransactionScreen(),
+            ),
+          );
+          if (result == true) {
+            _loadData();
+          }
+        },
         child: const Icon(Icons.add),
       ),
     );
