@@ -115,7 +115,13 @@ class _CategoryPickerState extends State<CategoryPicker> {
                         child: Icon(category.icon, color: Colors.white),
                       ),
                       const SizedBox(height: 8),
-                      Text(category.name, overflow: TextOverflow.ellipsis),
+                      Flexible(
+                        child: Text(
+                          category.name,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ],
                   ),
                 );
