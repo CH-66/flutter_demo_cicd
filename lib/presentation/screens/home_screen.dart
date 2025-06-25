@@ -12,6 +12,7 @@ import '../../services/notification_parser_service.dart';
 import '../../services/debug_log_service.dart';
 import '../../services/transaction_service.dart';
 import '../../services/notification_channel_service.dart';
+import '../widgets/category_picker.dart';
 import 'debug_screen.dart';
 import 'health_check_screen.dart';
 import 'settings_screen.dart';
@@ -576,100 +577,157 @@ class _ConfirmationDialogContent extends StatefulWidget {
 
 class __ConfirmationDialogContentState
     extends State<_ConfirmationDialogContent> {
+  late TextEditingController _merchantController;
+  late TextEditingController _amountController;
+  late TextEditingController _remarksController;
   bool _isSaving = false;
+  int? _selectedCategoryId;
 
-  Future<void> _handleConfirm() async {
-    if (_isSaving) return;
+  @override
+  void initState() {
+    super.initState();
+    _merchantController = TextEditingController(text: widget.data.merchant);
+    _amountController =
+        TextEditingController(text: widget.data.amount.toString());
+    _remarksController = TextEditingController();
+    _fetchDefaultCategory();
+  }
 
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await widget.transactionService.addTransaction(widget.data);
-      // 调用父widget传递的回调，这个回调会负责刷新UI和关闭弹窗
-      widget.onConfirm();
-    } catch (e) {
-      if (kDebugMode) {
-        print("保存交易失败: $e");
-      }
+  Future<void> _fetchDefaultCategory() async {
+    final categories = await widget.transactionService.getAllCategories();
+    if (mounted) {
       setState(() {
-        _isSaving = false;
+        _selectedCategoryId = categories
+            .firstWhere((c) => c.name == '未分类',
+                orElse: () => categories.first)
+            .id;
       });
-      // 可以在这里显示一个错误提示
-       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('保存失败: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isExpense = widget.data.type == TransactionType.expense;
-    final amountColor = isExpense ? Colors.red : Colors.green;
-    final amountPrefix = isExpense ? '-' : '+';
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('记录一笔新交易', style: theme.textTheme.titleLarge),
-          const SizedBox(height: 16),
-          _buildInfoRow(Icons.price_change_outlined, '金额',
-              '$amountPrefix ¥${widget.data.amount.toStringAsFixed(2)}', amountColor),
-          _buildInfoRow(
-              Icons.business_center_outlined, '类型', isExpense ? '支出' : '收入'),
-          _buildInfoRow(Icons.store_mall_directory_outlined, '商户', widget.data.merchant),
-          _buildInfoRow(Icons.apps_outlined, '来源', widget.data.source),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-                child: const Text('取消'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white,))
-                    : const Icon(Icons.check_circle_outline),
-                label: Text(_isSaving ? '保存中...' : '确认记账'),
-                onPressed: _handleConfirm,
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                ),
-              ),
-            ],
-          )
-        ],
-      ),
-    );
+  void dispose() {
+    _merchantController.dispose();
+    _amountController.dispose();
+    _remarksController.dispose();
+    super.dispose();
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, [Color? valueColor]) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: theme.textTheme.bodySmall?.color, size: 20),
-          const SizedBox(width: 16),
-          Text(label, style: theme.textTheme.bodyLarge),
-          const Spacer(),
-          Text(value, style: theme.textTheme.bodyLarge?.copyWith(color: valueColor, fontWeight: FontWeight.bold)),
-        ],
+  @override
+  Widget build(BuildContext context) {
+    if (_selectedCategoryId == null) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return SingleChildScrollView(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('记一笔',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _merchantController,
+              decoration: const InputDecoration(
+                labelText: '商家',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.storefront_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _amountController,
+              decoration: InputDecoration(
+                labelText: '金额',
+                border: const OutlineInputBorder(),
+                prefixIcon: Icon(
+                    widget.data.type == TransactionType.expense
+                        ? Icons.remove_circle_outline
+                        : Icons.add_circle_outline,
+                    color: widget.data.type == TransactionType.expense
+                        ? Colors.red
+                        : Colors.green),
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+            CategoryPicker(
+              initialCategoryId: _selectedCategoryId!,
+              onCategorySelected: (newId) {
+                setState(() {
+                  _selectedCategoryId = newId;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _remarksController,
+              decoration: const InputDecoration(
+                labelText: '备注（可选）',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.notes_outlined),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _isSaving
+                  ? null
+                  : () async {
+                      setState(() => _isSaving = true);
+                      final amount = double.tryParse(_amountController.text);
+                      if (amount == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('请输入有效的金额'),
+                              backgroundColor: Colors.red),
+                        );
+                        setState(() => _isSaving = false);
+                        return;
+                      }
+
+                      final newTransaction = tx_model.Transaction(
+                        amount: amount,
+                        merchant: _merchantController.text,
+                        type: widget.data.type,
+                        source: widget.data.source,
+                        categoryId: _selectedCategoryId!,
+                        timestamp: DateTime.now(),
+                        remarks: _remarksController.text.isNotEmpty
+                            ? _remarksController.text
+                            : null,
+                      );
+
+                      await widget.transactionService
+                          .insertTransaction(newTransaction);
+                      widget.onConfirm();
+                      // No need to set _isSaving back to false as the dialog will be popped
+                    },
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('记账'),
+            ),
+          ],
+        ),
       ),
     );
   }

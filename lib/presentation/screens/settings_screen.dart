@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_settings/app_settings.dart';
 import 'health_check_screen.dart';
+import 'category_management_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -131,6 +132,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         ),
         const SettingsHeader(title: '通用'),
+        ListTile(
+          leading: const Icon(Icons.category_outlined),
+          title: const Text('账单分类管理'),
+          subtitle: const Text('增删改查你的账单分类'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CategoryManagementScreen()),
+            );
+          },
+        ),
         ListTile(
           leading: const Icon(Icons.health_and_safety_outlined),
           title: const Text('权限健康检查'),

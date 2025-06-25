@@ -5,7 +5,7 @@ class Transaction {
   final double amount;
   final String merchant;
   final TransactionType type;
-  final String category; // 记账分类，如"餐饮"、"购物"等
+  final int categoryId; // 指向 categories 表的外键
   final String source; // 'alipay' or 'wechat'
   final DateTime timestamp;
   final String? remarks;
@@ -15,7 +15,7 @@ class Transaction {
     required this.amount,
     required this.merchant,
     required this.type,
-    this.category = '未分类',
+    required this.categoryId,
     required this.source,
     required this.timestamp,
     this.remarks,
@@ -28,7 +28,7 @@ class Transaction {
       amount: map['amount'],
       merchant: map['merchant'],
       type: TransactionType.values[map['type']],
-      category: map['category'],
+      categoryId: map['category_id'],
       source: map['source'],
       timestamp: DateTime.parse(map['timestamp']),
       remarks: map['remarks'],
@@ -42,7 +42,7 @@ class Transaction {
       'amount': amount,
       'merchant': merchant,
       'type': type.index,
-      'category': category,
+      'category_id': categoryId,
       'source': source,
       'timestamp': timestamp.toIso8601String(),
       'remarks': remarks,
