@@ -241,10 +241,296 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: _showManualTransactionSheet,
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  Future<void> _showManualTransactionSheet() async {
+    final bool? created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _ManualTransactionSheet(
+        transactionService: _transactionService,
+      ),
+    );
+
+    if (created == true && mounted) {
+      await _loadData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('记账成功')),
+      );
+    }
+  }
+}
+
+class _ManualTransactionSheet extends StatefulWidget {
+  const _ManualTransactionSheet({
+    required this.transactionService,
+  });
+
+  final TransactionService transactionService;
+
+  @override
+  State<_ManualTransactionSheet> createState() => _ManualTransactionSheetState();
+}
+
+class _ManualTransactionSheetState extends State<_ManualTransactionSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _merchantController = TextEditingController();
+  final TextEditingController _remarksController = TextEditingController();
+
+  TransactionType _selectedType = TransactionType.expense;
+  String _selectedCategory = _defaultCategories.first;
+  String _selectedSourceKey = _sourceOptions.keys.first;
+  DateTime _selectedDateTime = DateTime.now();
+  bool _isSubmitting = false;
+
+  static const List<String> _defaultCategories = <String>[
+    '未分类',
+    '餐饮',
+    '购物',
+    '交通',
+    '生活缴费',
+    '娱乐',
+    '其他',
+  ];
+
+  static const Map<String, String> _sourceOptions = <String, String>{
+    '手动添加': 'manual',
+    '支付宝': 'alipay',
+    '微信支付': 'wechat',
+  };
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _merchantController.dispose();
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('手动记账', style: theme.textTheme.titleLarge),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(false),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _amountController,
+                  decoration: const InputDecoration(
+                    labelText: '金额',
+                    prefixText: '¥ ',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '请输入金额';
+                    }
+                    final parsed = double.tryParse(value.replaceAll(',', ''));
+                    if (parsed == null || parsed <= 0) {
+                      return '请输入正确的金额';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _merchantController,
+                  decoration: const InputDecoration(labelText: '商户/事项'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '请输入商户或事项';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<TransactionType>(
+                  value: _selectedType,
+                  decoration: const InputDecoration(labelText: '类型'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: TransactionType.expense,
+                      child: Text('支出'),
+                    ),
+                    DropdownMenuItem(
+                      value: TransactionType.income,
+                      child: Text('收入'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _selectedType = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  decoration: const InputDecoration(labelText: '分类'),
+                  items: _defaultCategories
+                      .map((category) => DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _selectedCategory = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedSourceKey,
+                  decoration: const InputDecoration(labelText: '来源'),
+                  items: _sourceOptions.keys
+                      .map((key) => DropdownMenuItem(
+                            value: key,
+                            child: Text(key),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _selectedSourceKey = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildDateTimePicker(theme),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _remarksController,
+                  decoration: const InputDecoration(
+                    labelText: '备注 (可选)',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('保存'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateTimePicker(ThemeData theme) {
+    return InkWell(
+      onTap: _isSubmitting ? null : _selectDateTime,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: '记账时间',
+          border: OutlineInputBorder(),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month),
+            const SizedBox(width: 12),
+            Text(DateFormat('yyyy-MM-dd HH:mm').format(_selectedDateTime),
+                style: theme.textTheme.bodyLarge),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectDateTime() async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate == null) return;
+
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+    );
+    if (pickedTime == null) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final amount = double.parse(_amountController.text.replaceAll(',', ''));
+    final remarks = _remarksController.text.trim();
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final transaction = tx_model.Transaction(
+        amount: amount,
+        merchant: _merchantController.text.trim(),
+        type: _selectedType,
+        category: _selectedCategory,
+        source: _sourceOptions[_selectedSourceKey]!,
+        timestamp: _selectedDateTime,
+        remarks: remarks.isEmpty ? null : remarks,
+      );
+
+      await widget.transactionService.insertTransaction(transaction);
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存失败: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }
 
